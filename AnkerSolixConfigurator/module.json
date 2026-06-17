@@ -1,0 +1,12 @@
+{
+    "id": "{D4E5F6A7-B8C9-0123-DEF0-234567890123}",
+    "parentRequirements": ["{56367DF0-FB25-4588-9E60-C19AFB148E76}"],
+    "childRequirements": [],
+    "implemented": ["{BAB5A1A2-56DA-4956-82EC-C997174D9AB6}"],
+    "aliases": [],
+    "name": "Anker Solix Konfigurator",
+    "type": 4,
+    "vendor": "Anker",
+    "prefix": "ANKERSOLIXCONFIG",
+    "url": ""
+}
