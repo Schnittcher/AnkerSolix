@@ -178,10 +178,14 @@ class AnkerSolixDevice extends IPSModule
 
         $this->MaintainVariable('SOC',           'Batterieladung',   VARIABLETYPE_FLOAT, self::PCT,  20, $hasBattery);
         $this->MaintainVariable('BatteryEnergy', 'Batterieenergie',  VARIABLETYPE_FLOAT, self::KWH,  30, $hasBattery);
-        $this->MaintainVariable('BatteryPower',  'Batterieleistung', VARIABLETYPE_FLOAT, self::WATT, 40, $hasBattery);
+        $this->MaintainVariable('BatteryPower',     'Batterieleistung', VARIABLETYPE_FLOAT, self::WATT, 40, $hasBattery);
+        $this->MaintainVariable('Chargepower',     'Aufladeleistung',  VARIABLETYPE_FLOAT, self::WATT, 45, $hasBattery);
+        $this->MaintainVariable('Dischargepower',  'Entladeleistung',  VARIABLETYPE_FLOAT, self::WATT, 46, $hasBattery);
 
-        $this->MaintainVariable('OutputPower', 'Ausgangsleistung', VARIABLETYPE_FLOAT, self::WATT, 50, $isSolarbank);
-        $this->MaintainVariable('HomeLoad',    'Hausverbrauch',    VARIABLETYPE_FLOAT, self::WATT, 60, $isSolarbank);
+        $this->MaintainVariable('OperatingStatus', 'Betriebszustand',  VARIABLETYPE_STRING, [], 50, $isSolarbank);
+        $this->MaintainVariable('OutputPower',     'Ausgangsleistung', VARIABLETYPE_FLOAT, self::WATT, 60, $isSolarbank);
+        $this->MaintainVariable('GridExport',      'Einspeisevorgabe', VARIABLETYPE_FLOAT, self::WATT, 65, $isSolarbank);
+        $this->MaintainVariable('HomeLoad',        'Hausverbrauch',    VARIABLETYPE_FLOAT, self::WATT, 70, $isSolarbank);
 
         $this->MaintainVariable('TotalEnergy', 'Energie gesamt',  VARIABLETYPE_FLOAT, self::KWH, 70, true);
 
@@ -216,9 +220,30 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('OutputPower',  (float)($device['output_power'] ?? $info['total_output_power'] ?? 0));
         $this->SetValue('HomeLoad',     (float)($scene['home_load_power'] ?? $info['to_home_load'] ?? 0));
 
-        $charge    = (float)($device['bat_charge_power']    ?? 0);
-        $discharge = (float)($device['bat_discharge_power'] ?? 0);
-        $this->SetValue('BatteryPower', $charge > 0 ? $charge : -$discharge);
+        // charging_status: 1=Laden, 2=Entladen — charging_power enthält den jeweiligen Wert
+        $chargingStatus = (int)($device['charging_status'] ?? 0);
+        $chargingPower  = (float)($device['charging_power'] ?? 0);
+        $charge    = $chargingStatus === 1 ? $chargingPower : 0.0;
+        $discharge = $chargingStatus === 2 ? $chargingPower : 0.0;
+
+        $this->SetValue('BatteryPower',   $charge > 0 ? $charge : -$discharge);
+        $this->SetValue('Chargepower',    $charge);
+        $this->SetValue('Dischargepower', $discharge);
+
+        // retain_load enthält Einspeisevorgabe als String z.B. "130W"
+        $retainLoad = preg_replace('/[^0-9.]/', '', $scene['retain_load'] ?? '');
+        $this->SetValue('GridExport', $retainLoad !== '' ? (float)$retainLoad : (float)($info['total_output_power'] ?? 0));
+
+        if ($charge > 0) {
+            $status = 'Laden';
+        } elseif ($discharge > 0) {
+            $status = 'Entladung';
+        } elseif ((float)($device['output_power'] ?? 0) > 0) {
+            $status = 'Bypass';
+        } else {
+            $status = 'Standby';
+        }
+        $this->SetValue('OperatingStatus', $status);
 
         $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '');
         $this->SetValue('BatteryEnergy', round($nominalKwh * (float)($device['battery_power'] ?? 0) / 100, 2));
@@ -283,11 +308,30 @@ class AnkerSolixDevice extends IPSModule
                   ?? (isset($info['device_sn']) ? $info : null);
         if ($device === null) return;
 
-        $this->SetValue('SOC',           (float)($device['battery_power'] ?? $device['soc'] ?? 0));
-        $this->SetValue('SolarPower',    (float)($this->FindKey($device, ['solar_power_w', 'pv_power']) ?? 0));
-        $this->SetValue('BatteryPower',  (float)($this->FindKey($device, ['charging_power', 'discharging_power']) ?? 0));
-        $this->SetValue('OutputPower',   (float)($this->FindKey($device, ['output_power', 'ac_out_power']) ?? 0));
-        $this->SetValue('HomeLoad',      (float)($this->FindKey($scene, ['home_load_power', 'load_power_w']) ?? 0));
+        $this->SetValue('SOC',        (float)($device['battery_power'] ?? $device['soc'] ?? 0));
+        $this->SetValue('SolarPower', (float)($this->FindKey($device, ['solar_power_w', 'pv_power']) ?? 0));
+
+        $hpCharge    = (float)($this->FindKey($device, ['charging_power', 'bat_charge_power']) ?? 0);
+        $hpDischarge = (float)($this->FindKey($device, ['discharging_power', 'bat_discharge_power']) ?? 0);
+        $this->SetValue('BatteryPower',    $hpCharge > 0 ? $hpCharge : -$hpDischarge);
+        $this->SetValue('Chargepower',    $hpCharge);
+        $this->SetValue('Dischargepower', $hpDischarge);
+
+        $hpOutput = (float)($this->FindKey($device, ['output_power', 'ac_out_power']) ?? 0);
+        $this->SetValue('OutputPower', $hpOutput);
+        $this->SetValue('GridExport',  (float)($this->FindKey($device, ['output_home_load', 'grid_to_home_load']) ?? $hpOutput));
+        $this->SetValue('HomeLoad',    (float)($this->FindKey($scene, ['home_load_power', 'load_power_w']) ?? 0));
+
+        if ($hpCharge > 0) {
+            $hpStatus = 'Laden';
+        } elseif ($hpDischarge > 0) {
+            $hpStatus = 'Entladung';
+        } elseif ($hpOutput > 0) {
+            $hpStatus = 'Bypass';
+        } else {
+            $hpStatus = 'Standby';
+        }
+        $this->SetValue('OperatingStatus', $hpStatus);
         $this->SetValue('BatteryEnergy', (float)($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
         $this->SetValue('TotalEnergy',   (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
 

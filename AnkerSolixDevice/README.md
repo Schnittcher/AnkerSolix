@@ -41,11 +41,16 @@ Es werden nur die für den jeweiligen Gerätetyp relevanten Variablen angelegt.
 | Ident | Name | Einheit |
 |---|---|---|
 | `SolarPower` | Solarleistung | W |
-| `BatteryPower` | Batterieleistung | W (+ laden / − entladen) |
-| `OutputPower` | Ausgangsleistung | W |
-| `HomeLoad` | Hausverbrauch | W |
+| `SolarPower` | Solarleistung | W |
 | `SOC` | Batterieladung | % |
 | `BatteryEnergy` | Batterieenergie | kWh |
+| `BatteryPower` | Batterieleistung | W (+ laden / − entladen) |
+| `Chargepower` | Aufladeleistung | W |
+| `Dischargepower` | Entladeleistung | W |
+| `OperatingStatus` | Betriebszustand | Laden / Entladung / Bypass / Standby |
+| `OutputPower` | Ausgangsleistung | W |
+| `GridExport` | Einspeisevorgabe | W |
+| `HomeLoad` | Hausverbrauch | W |
 | `TotalEnergy` | Energie gesamt | kWh |
 
 ### Smart Plug / Smart Meter / Powerstation
