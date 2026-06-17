@@ -3,7 +3,7 @@
         {
             "type": "Configurator",
             "name": "AnkerSolixConfigurator",
-            "caption": "Anker Solix Geräte",
+            "caption": "Anker Solix Devices",
             "rowCount": 10,
             "add": false,
             "delete": false,
@@ -13,22 +13,22 @@
             },
             "columns": [
                 {
-                    "caption": "Anlage",
+                    "caption": "Site",
                     "name": "SiteName",
                     "width": "150px"
                 },
                 {
-                    "caption": "Typ",
+                    "caption": "Type",
                     "name": "DeviceType",
                     "width": "130px"
                 },
                 {
-                    "caption": "Gerät",
+                    "caption": "Device",
                     "name": "DeviceName",
                     "width": "200px"
                 },
                 {
-                    "caption": "Seriennummer",
+                    "caption": "Serial Number",
                     "name": "DeviceSn",
                     "width": "auto",
                     "fill": true
@@ -40,11 +40,11 @@
     "actions": [
         {
             "type": "Label",
-            "caption": "Spenden / Schenkung"
+            "caption": "Donations"
         },
         {
             "type": "Label",
-            "caption": "Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    "
+            "caption": "This module is free for non-commercial use. Donations to support the author are accepted here:    "
         },
         {
             "type": "RowLayout",
@@ -70,17 +70,17 @@
         {
             "code": 101,
             "icon": "inactive",
-            "caption": "Modul wird erstellt"
+            "caption": "Module is being created"
         },
         {
             "code": 102,
             "icon": "active",
-            "caption": "Bereit"
+            "caption": "Ready"
         },
         {
             "code": 201,
             "icon": "inactive",
-            "caption": "Kein IO-Modul verbunden"
+            "caption": "No IO module connected"
         }
     ]
 }

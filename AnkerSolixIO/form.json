@@ -3,44 +3,74 @@
         {
             "type": "ValidationTextBox",
             "name": "Email",
-            "caption": "E-Mail Adresse"
+            "caption": "E-Mail Address"
         },
         {
             "type": "PasswordTextBox",
             "name": "Password",
-            "caption": "Passwort"
+            "caption": "Password"
         },
         {
             "type": "Select",
             "name": "Country",
-            "caption": "Land",
+            "caption": "Country",
             "options": [
-                {"caption": "Deutschland (DE)", "value": "DE"},
-                {"caption": "Österreich (AT)", "value": "AT"},
-                {"caption": "Schweiz (CH)", "value": "CH"},
-                {"caption": "USA (US)", "value": "US"},
-                {"caption": "UK (GB)", "value": "GB"},
-                {"caption": "Frankreich (FR)", "value": "FR"},
-                {"caption": "Niederlande (NL)", "value": "NL"},
-                {"caption": "Belgien (BE)", "value": "BE"},
-                {"caption": "Italien (IT)", "value": "IT"},
-                {"caption": "Spanien (ES)", "value": "ES"}
+                {
+                    "caption": "Germany (DE)",
+                    "value": "DE"
+                },
+                {
+                    "caption": "Austria (AT)",
+                    "value": "AT"
+                },
+                {
+                    "caption": "Switzerland (CH)",
+                    "value": "CH"
+                },
+                {
+                    "caption": "USA (US)",
+                    "value": "US"
+                },
+                {
+                    "caption": "UK (GB)",
+                    "value": "GB"
+                },
+                {
+                    "caption": "France (FR)",
+                    "value": "FR"
+                },
+                {
+                    "caption": "Netherlands (NL)",
+                    "value": "NL"
+                },
+                {
+                    "caption": "Belgium (BE)",
+                    "value": "BE"
+                },
+                {
+                    "caption": "Italy (IT)",
+                    "value": "IT"
+                },
+                {
+                    "caption": "Spain (ES)",
+                    "value": "ES"
+                }
             ]
         }
     ],
     "actions": [
         {
             "type": "Button",
-            "caption": "Verbindung testen",
+            "caption": "Test Connection",
             "onClick": "ANKERSOLIXIO_TestConnection($id);"
-        },
-                {
-            "type": "Label",
-            "caption": "Spenden / Schenkung"
         },
         {
             "type": "Label",
-            "caption": "Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    "
+            "caption": "Donations"
+        },
+        {
+            "type": "Label",
+            "caption": "This module is free for non-commercial use. Donations to support the author are accepted here:    "
         },
         {
             "type": "RowLayout",
@@ -66,27 +96,27 @@
         {
             "code": 101,
             "icon": "inactive",
-            "caption": "Modul wird erstellt"
+            "caption": "Module is being created"
         },
         {
             "code": 102,
             "icon": "active",
-            "caption": "Verbunden"
+            "caption": "Connected"
         },
         {
             "code": 201,
             "icon": "inactive",
-            "caption": "Nicht konfiguriert"
+            "caption": "Not configured"
         },
         {
             "code": 202,
             "icon": "error",
-            "caption": "Anmeldung fehlgeschlagen"
+            "caption": "Login failed"
         },
         {
             "code": 203,
             "icon": "error",
-            "caption": "Verbindungsfehler"
+            "caption": "Connection error"
         }
     ]
 }

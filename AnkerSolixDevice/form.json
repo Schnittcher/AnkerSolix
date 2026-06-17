@@ -2,7 +2,7 @@
     "elements": [
         {
             "type": "ExpansionPanel",
-            "caption": "Gerät",
+            "caption": "Device",
             "expanded": true,
             "items": [
                 {
@@ -20,7 +20,7 @@
                                 {
                                     "type": "ValidationTextBox",
                                     "name": "DeviceType",
-                                    "caption": "Typ",
+                                    "caption": "Type",
                                     "enabled": false
                                 },
                                 {
@@ -32,7 +32,7 @@
                                 {
                                     "type": "ValidationTextBox",
                                     "name": "DeviceSn",
-                                    "caption": "Seriennummer",
+                                    "caption": "Serial Number",
                                     "enabled": false
                                 }
                             ]
@@ -47,13 +47,13 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Aktualisierung",
+            "caption": "Update",
             "expanded": true,
             "items": [
                 {
                     "type": "NumberSpinner",
                     "name": "UpdateInterval",
-                    "caption": "Intervall (Sekunden)"
+                    "caption": "Interval (seconds)"
                 }
             ]
         }
@@ -61,21 +61,21 @@
     "actions": [
         {
             "type": "Button",
-            "caption": "Jetzt aktualisieren",
+            "caption": "Update now",
             "onClick": "ANKERSOLIX_UpdateData($id);"
         },
         {
             "type": "Button",
-            "caption": "Debug: Rohdaten ins Log",
+            "caption": "Debug: Raw data to log",
             "onClick": "ANKERSOLIX_DebugData($id);"
         },
                 {
             "type": "Label",
-            "caption": "Spenden / Schenkung"
+            "caption": "Donations"
         },
         {
             "type": "Label",
-            "caption": "Dieses Modul ist für die nicht kommerzielle Nutzung kostenlos, Schenkungen als Unterstützung für den Autor werden hier akzeptiert:    "
+            "caption": "This module is free for non-commercial use. Donations to support the author are accepted here:    "
         },
         {
             "type": "RowLayout",
@@ -101,22 +101,22 @@
         {
             "code": 101,
             "icon": "inactive",
-            "caption": "Modul wird erstellt"
+            "caption": "Module is being created"
         },
         {
             "code": 102,
             "icon": "active",
-            "caption": "Aktiv"
+            "caption": "Active"
         },
         {
             "code": 201,
             "icon": "inactive",
-            "caption": "Kein IO-Modul / nicht konfiguriert"
+            "caption": "No IO module / not configured"
         },
         {
             "code": 203,
             "icon": "error",
-            "caption": "Verbindungsfehler"
+            "caption": "Connection error"
         }
     ]
 }

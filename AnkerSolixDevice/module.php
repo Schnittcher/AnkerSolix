@@ -174,25 +174,25 @@ class AnkerSolixDevice extends IPSModule
         $hasSolar    = in_array($type, ['solarbank', 'home_power']);
         $hasSwitch   = $type === 'smartplug';
 
-        $this->MaintainVariable('SolarPower',   'Solarleistung',    VARIABLETYPE_FLOAT, self::WATT, 10, $hasSolar);
+        $this->MaintainVariable('SolarPower',   $this->Translate('Solar Power'),      VARIABLETYPE_FLOAT, self::WATT, 10, $hasSolar);
 
-        $this->MaintainVariable('SOC',           'Batterieladung',   VARIABLETYPE_FLOAT, self::PCT,  20, $hasBattery);
-        $this->MaintainVariable('BatteryEnergy', 'Batterieenergie',  VARIABLETYPE_FLOAT, self::KWH,  30, $hasBattery);
-        $this->MaintainVariable('BatteryPower',     'Batterieleistung', VARIABLETYPE_FLOAT, self::WATT, 40, $hasBattery);
-        $this->MaintainVariable('Chargepower',     'Aufladeleistung',  VARIABLETYPE_FLOAT, self::WATT, 45, $hasBattery);
-        $this->MaintainVariable('Dischargepower',  'Entladeleistung',  VARIABLETYPE_FLOAT, self::WATT, 46, $hasBattery);
+        $this->MaintainVariable('SOC',           $this->Translate('Battery Level'),    VARIABLETYPE_FLOAT, self::PCT,  20, $hasBattery);
+        $this->MaintainVariable('BatteryEnergy', $this->Translate('Battery Energy'),   VARIABLETYPE_FLOAT, self::KWH,  30, $hasBattery);
+        $this->MaintainVariable('BatteryPower',  $this->Translate('Battery Power'),    VARIABLETYPE_FLOAT, self::WATT, 40, $hasBattery);
+        $this->MaintainVariable('Chargepower',   $this->Translate('Charge Power'),     VARIABLETYPE_FLOAT, self::WATT, 45, $hasBattery);
+        $this->MaintainVariable('Dischargepower',$this->Translate('Discharge Power'),  VARIABLETYPE_FLOAT, self::WATT, 46, $hasBattery);
 
-        $this->MaintainVariable('OperatingStatus', 'Betriebszustand',  VARIABLETYPE_STRING, [], 50, $isSolarbank);
-        $this->MaintainVariable('OutputPower',     'Ausgangsleistung', VARIABLETYPE_FLOAT, self::WATT, 60, $isSolarbank);
-        $this->MaintainVariable('GridExport',      'Einspeisevorgabe', VARIABLETYPE_FLOAT, self::WATT, 65, $isSolarbank);
-        $this->MaintainVariable('HomeLoad',        'Hausverbrauch',    VARIABLETYPE_FLOAT, self::WATT, 70, $isSolarbank);
+        $this->MaintainVariable('OperatingStatus', $this->Translate('Operating Status'), VARIABLETYPE_STRING, [], 50, $isSolarbank);
+        $this->MaintainVariable('OutputPower',     $this->Translate('Output Power'),     VARIABLETYPE_FLOAT, self::WATT, 60, $isSolarbank);
+        $this->MaintainVariable('GridExport',      $this->Translate('Grid Export'),      VARIABLETYPE_FLOAT, self::WATT, 65, $isSolarbank);
+        $this->MaintainVariable('HomeLoad',        $this->Translate('Home Load'),        VARIABLETYPE_FLOAT, self::WATT, 70, $isSolarbank);
 
-        $this->MaintainVariable('TotalEnergy', 'Energie gesamt',  VARIABLETYPE_FLOAT, self::KWH, 70, true);
+        $this->MaintainVariable('TotalEnergy', $this->Translate('Total Energy'), VARIABLETYPE_FLOAT, self::KWH, 75, true);
 
-        $this->MaintainVariable('Power',       'Leistung',        VARIABLETYPE_FLOAT,   self::WATT, 80, $isPlug);
-        $this->MaintainVariable('Voltage',     'Spannung',        VARIABLETYPE_FLOAT,   self::VOLT, 90, $isPlug);
-        $this->MaintainVariable('Current',     'Strom',           VARIABLETYPE_FLOAT,   self::AMP,  100, $isPlug);
-        $this->MaintainVariable('SwitchState', 'Schalter',        VARIABLETYPE_BOOLEAN,
+        $this->MaintainVariable('Power',       $this->Translate('Power'),        VARIABLETYPE_FLOAT,   self::WATT, 80, $isPlug);
+        $this->MaintainVariable('Voltage',     $this->Translate('Voltage'),      VARIABLETYPE_FLOAT,   self::VOLT, 90, $isPlug);
+        $this->MaintainVariable('Current',     $this->Translate('Current'),      VARIABLETYPE_FLOAT,   self::AMP,  100, $isPlug);
+        $this->MaintainVariable('SwitchState', $this->Translate('Switch'),       VARIABLETYPE_BOOLEAN,
             ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH], 110, $hasSwitch);
     }
 
@@ -235,13 +235,13 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('GridExport', $retainLoad !== '' ? (float)$retainLoad : (float)($info['total_output_power'] ?? 0));
 
         if ($charge > 0) {
-            $status = 'Laden';
+            $status = $this->Translate('Charging');
         } elseif ($discharge > 0) {
-            $status = 'Entladung';
+            $status = $this->Translate('Discharging');
         } elseif ((float)($device['output_power'] ?? 0) > 0) {
-            $status = 'Bypass';
+            $status = $this->Translate('Bypass');
         } else {
-            $status = 'Standby';
+            $status = $this->Translate('Standby');
         }
         $this->SetValue('OperatingStatus', $status);
 
@@ -323,13 +323,13 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('HomeLoad',    (float)($this->FindKey($scene, ['home_load_power', 'load_power_w']) ?? 0));
 
         if ($hpCharge > 0) {
-            $hpStatus = 'Laden';
+            $hpStatus = $this->Translate('Charging');
         } elseif ($hpDischarge > 0) {
-            $hpStatus = 'Entladung';
+            $hpStatus = $this->Translate('Discharging');
         } elseif ($hpOutput > 0) {
-            $hpStatus = 'Bypass';
+            $hpStatus = $this->Translate('Bypass');
         } else {
-            $hpStatus = 'Standby';
+            $hpStatus = $this->Translate('Standby');
         }
         $this->SetValue('OperatingStatus', $hpStatus);
         $this->SetValue('BatteryEnergy', (float)($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
