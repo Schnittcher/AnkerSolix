@@ -114,7 +114,7 @@ class AnkerSolixKonfigurator extends IPSModule
             'DeviceSn'   => $deviceSn,
             'instanceID' => $instanceID,
             'create'     => [
-                'moduleID'      => '{B2C3D4E5-F6A7-8901-BCDE-F12345678901}',
+                'moduleID'      => '{660A99F2-398D-2B4D-9A1B-534DC3C70004}',
                 'configuration' => [
                     'SiteId'     => $siteId,
                     'DeviceSn'   => $deviceSn,
@@ -127,7 +127,7 @@ class AnkerSolixKonfigurator extends IPSModule
 
     private function FindExistingInstance(string $siteId, string $deviceSn, string $typeKey): int
     {
-        foreach (IPS_GetInstanceListByModuleID('{B2C3D4E5-F6A7-8901-BCDE-F12345678901}') as $id) {
+        foreach (IPS_GetInstanceListByModuleID('{660A99F2-398D-2B4D-9A1B-534DC3C70004}') as $id) {
             if (IPS_GetProperty($id, 'SiteId') === $siteId
                 && IPS_GetProperty($id, 'DeviceSn') === $deviceSn
                 && IPS_GetProperty($id, 'DeviceType') === $typeKey) {
