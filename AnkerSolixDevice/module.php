@@ -220,11 +220,24 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('OutputPower',  (float)($device['output_power'] ?? $info['total_output_power'] ?? 0));
         $this->SetValue('HomeLoad',     (float)($scene['home_load_power'] ?? $info['to_home_load'] ?? 0));
 
-        // charging_status: 1=Laden, 2=Entladen — charging_power enthält den jeweiligen Wert
+        // charging_status: 1=nur Laden, 2=Entladen, 3=Solar aktiv (bat_charge_power direkt verwertbar)
+        // Bei Status 2 enthält charging_power die Entladeleistung; bei 1/3 die Ladeleistung
         $chargingStatus = (int)($device['charging_status'] ?? 0);
         $chargingPower  = (float)($device['charging_power'] ?? 0);
-        $charge    = $chargingStatus === 1 ? $chargingPower : 0.0;
-        $discharge = $chargingStatus === 2 ? $chargingPower : 0.0;
+        $batCharge      = (float)($device['bat_charge_power']    ?? 0);
+        $batDischarge   = (float)($device['bat_discharge_power'] ?? 0);
+
+        if ($chargingStatus === 2) {
+            $charge    = 0.0;
+            $discharge = $chargingPower;
+        } elseif ($chargingStatus === 3) {
+            $charge    = $batCharge;
+            $discharge = $batDischarge;
+        } else {
+            // Status 1 oder 0
+            $charge    = $chargingPower > 0 ? $chargingPower : $batCharge;
+            $discharge = 0.0;
+        }
 
         $this->SetValue('BatteryPower',   $charge > 0 ? $charge : -$discharge);
         $this->SetValue('Chargepower',    $charge);
