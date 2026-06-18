@@ -11,7 +11,7 @@ class AnkerSolixDevice extends IPSModule
     public function Create()
     {
         parent::Create();
-        $this->ConnectParent('{C3D4E5F6-A7B8-9012-CDEF-123456789012}');
+        $this->ConnectParent('{8570691A-D27F-5BD4-1628-CBE518652227}');
 
         $this->RegisterPropertyString('SiteId','');
         $this->RegisterPropertyString('DeviceSn','');
