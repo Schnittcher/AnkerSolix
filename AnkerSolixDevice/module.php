@@ -2,12 +2,14 @@
 
 class AnkerSolixDevice extends IPSModule
 {
+    // Einheitendefinitionen für MaintainVariable-Aufrufe
     private const WATT = ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' W',   'DIGITS' => 0];
     private const KWH  = ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' kWh', 'DIGITS' => 2];
     private const PCT  = ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' %',   'DIGITS' => 0];
     private const VOLT = ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' V',   'DIGITS' => 1];
     private const AMP  = ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'SUFFIX' => ' A',   'DIGITS' => 2];
 
+    // Registriert Properties, Attribute und den Update-Timer beim Anlegen der Instanz
     public function Create()
     {
         parent::Create();
@@ -30,6 +32,7 @@ class AnkerSolixDevice extends IPSModule
         parent::Destroy();
     }
 
+    // Legt gerätetypspezifische Variablen an und startet den Timer nach Konfigurationsänderung
     public function ApplyChanges()
     {
         parent::ApplyChanges();
@@ -47,6 +50,7 @@ class AnkerSolixDevice extends IPSModule
 
     // ── Public ──────────────────────────────────────────────────────────────────
 
+    // Ruft die aktuellen Messwerte vom IO-Modul ab und schreibt sie in die Variablen
     public function UpdateData(): void
     {
         $this->SetTimerInterval('UpdateTimer', $this->ReadPropertyInteger('UpdateInterval') * 1000);
@@ -61,6 +65,7 @@ class AnkerSolixDevice extends IPSModule
         }
     }
 
+    // Schreibt die vollständige API-Antwort (Scene + Device-Objekt) ins Nachrichtenarchiv zur Diagnose
     public function DebugData(): void
     {
         try {
@@ -68,8 +73,8 @@ class AnkerSolixDevice extends IPSModule
             $this->LogMessage('AnkerSolix Debug Scene: ' . json_encode($scene, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), KL_MESSAGE);
 
             $type    = $this->ReadPropertyString('DeviceType');
-            $infoKey = ['solarbank' => 'solarbank_info', 'smartplug' => 'smartplug_info', 'smart_meter' => 'smart_meter_info', 'pps' => 'pps_info', 'home_power' => 'home_info'][$type] ?? '';
-            $listKey = ['solarbank' => 'solarbank_list', 'smartplug' => 'smartplug_list', 'smart_meter' => 'smart_meter_list', 'pps' => 'pps_list', 'home_power' => 'home_device_list'][$type] ?? '';
+            $infoKey = ['solarbank' => 'solarbank_info', 'smartplug' => 'smart_plug_info', 'smart_meter' => 'smart_meter_info', 'pps' => 'pps_info', 'home_power' => 'home_info'][$type] ?? '';
+            $listKey = ['solarbank' => 'solarbank_list', 'smartplug' => 'smart_plug_list', 'smart_meter' => 'smart_meter_list', 'pps' => 'pps_list', 'home_power' => 'home_device_list'][$type] ?? '';
             $info    = $scene[$infoKey] ?? [];
             $list    = $info[$listKey] ?? [];
             $sn      = $this->ReadPropertyString('DeviceSn');
@@ -86,10 +91,12 @@ class AnkerSolixDevice extends IPSModule
         }
     }
 
+    // Pflichtmethode für Splitter-Kindmodule — verarbeitet keinen Push vom IO
     public function ReceiveData($JSONString): void
     {
     }
 
+    // Lädt form.json und injiziert das Gerätebild als Base64-Data-URI in den Platzhalter __deviceImage__
     public function GetConfigurationForm(): string
     {
         $form   = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
@@ -102,8 +109,8 @@ class AnkerSolixDevice extends IPSModule
             $base64 = $this->FetchDeviceImage();
         }
 
-        // Bild-Element aus Form entfernen wenn kein Bild vorhanden
         if ($base64 === '') {
+            // Bild-Element aus Form entfernen wenn kein Bild vorhanden
             foreach ($form['elements'] as $eIdx => $element) {
                 if (($element['type'] ?? '') === 'ExpansionPanel') {
                     foreach ($element['items'] ?? [] as $iIdx => $item) {
@@ -125,13 +132,14 @@ class AnkerSolixDevice extends IPSModule
         return json_encode($form);
     }
 
+    // Holt die Bild-URL des Geräts aus der Scene-API und speichert sie im Attribut
     private function FetchDeviceImageFromScene(): void
     {
         try {
             $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $this->ReadPropertyString('SiteId')]);
-            $info  = $scene['solarbank_info'] ?? $scene['smartplug_info'] ?? $scene['pps_info'] ?? $scene['home_info'] ?? [];
+            $info  = $scene['solarbank_info'] ?? $scene['smart_plug_info'] ?? $scene['pps_info'] ?? $scene['home_info'] ?? [];
             $sn    = $this->ReadPropertyString('DeviceSn');
-            foreach (['solarbank_list', 'smartplug_list', 'pps_list', 'home_device_list', 'smart_meter_list'] as $listKey) {
+            foreach (['solarbank_list', 'smart_plug_list', 'pps_list', 'home_device_list', 'smart_meter_list'] as $listKey) {
                 foreach ($info[$listKey] ?? [] as $d) {
                     if (($d['device_sn'] ?? '') === $sn && !empty($d['device_img'])) {
                         // URL in Attribut statt Property speichern — kein ApplyChanges nötig
@@ -145,6 +153,7 @@ class AnkerSolixDevice extends IPSModule
         }
     }
 
+    // Lädt das Gerätebild per HTTP, kodiert es als Base64-Data-URI und cached es im Attribut
     private function FetchDeviceImage(): string
     {
         $url = $this->ReadAttributeString('DeviceImageUrl');
@@ -166,6 +175,7 @@ class AnkerSolixDevice extends IPSModule
 
     // ── Variablen-Verwaltung ─────────────────────────────────────────────────────
 
+    // Legt nur die für den Gerätetyp relevanten Variablen an bzw. entfernt nicht benötigte
     private function MaintainVariablesForType(string $type): void
     {
         $isSolarbank = in_array($type, ['solarbank', 'pps', 'home_power']);
@@ -198,6 +208,7 @@ class AnkerSolixDevice extends IPSModule
 
     // ── Scene-Verarbeitung ───────────────────────────────────────────────────────
 
+    // Leitet die API-Antwort je nach Gerätetyp an die passende Verarbeitungsmethode weiter
     private function ProcessScene(array $scene): void
     {
         switch ($this->ReadPropertyString('DeviceType')) {
@@ -209,6 +220,7 @@ class AnkerSolixDevice extends IPSModule
         }
     }
 
+    // Verarbeitet die Scene-Daten einer Solarbank und befüllt alle Variablen
     private function ProcessSolarbank(array $scene): void
     {
         $info   = $scene['solarbank_info'] ?? [];
@@ -258,22 +270,23 @@ class AnkerSolixDevice extends IPSModule
         }
         $this->SetValue('OperatingStatus', $status);
 
+        // Batterieenergie aus SOC und nominaler Kapazität berechnen (API liefert keinen Wh-Wert)
         $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '');
         $this->SetValue('BatteryEnergy', round($nominalKwh * (float)($device['battery_power'] ?? 0) / 100, 2));
 
+        // Gesamtenergie aus statistics-Array (type=1 entspricht kWh-Gesamtertrag)
         $totalEnergy = 0.0;
         foreach ($scene['statistics'] ?? [] as $stat) {
             if (($stat['type'] ?? '') === '1') { $totalEnergy = (float)$stat['total']; break; }
         }
         $this->SetValue('TotalEnergy', $totalEnergy);
-
-
     }
 
+    // Verarbeitet die Scene-Daten eines Smart Plugs
     private function ProcessSmartPlug(array $scene): void
     {
-        $info   = $scene['smartplug_info'] ?? [];
-        $device = $this->FindDevice($info['smartplug_list'] ?? []);
+        $info   = $scene['smart_plug_info'] ?? [];
+        $device = $this->FindDevice($info['smart_plug_list'] ?? []);
         if ($device === null) return;
 
         $this->SetValue('Power',       (float)($this->FindKey($device, ['power', 'current_power_w']) ?? 0));
@@ -281,9 +294,9 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('Current',     (float)($device['current'] ?? 0));
         $this->SetValue('SwitchState', (bool)($device['status'] ?? $device['switch_status'] ?? false));
         $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
-
     }
 
+    // Verarbeitet die Scene-Daten eines Smart Meters
     private function ProcessSmartMeter(array $scene): void
     {
         $info   = $scene['smart_meter_info'] ?? [];
@@ -295,9 +308,9 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('Voltage',     (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',     (float)($device['current'] ?? 0));
         $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
-
     }
 
+    // Verarbeitet die Scene-Daten einer Powerstation (PPS)
     private function ProcessPPS(array $scene): void
     {
         $info   = $scene['pps_info'] ?? [];
@@ -311,9 +324,9 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('Voltage',       (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',       (float)($device['current'] ?? 0));
         $this->SetValue('TotalEnergy',   (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
-
     }
 
+    // Verarbeitet die Scene-Daten einer Home Power Station
     private function ProcessHomePower(array $scene): void
     {
         $info   = $scene['home_info'] ?? [];
@@ -326,7 +339,7 @@ class AnkerSolixDevice extends IPSModule
 
         $hpCharge    = (float)($this->FindKey($device, ['charging_power', 'bat_charge_power']) ?? 0);
         $hpDischarge = (float)($this->FindKey($device, ['discharging_power', 'bat_discharge_power']) ?? 0);
-        $this->SetValue('BatteryPower',    $hpCharge > 0 ? $hpCharge : -$hpDischarge);
+        $this->SetValue('BatteryPower',   $hpCharge > 0 ? $hpCharge : -$hpDischarge);
         $this->SetValue('Chargepower',    $hpCharge);
         $this->SetValue('Dischargepower', $hpDischarge);
 
@@ -347,9 +360,9 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('OperatingStatus', $hpStatus);
         $this->SetValue('BatteryEnergy', (float)($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
         $this->SetValue('TotalEnergy',   (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
-
     }
 
+    // Gibt die nominale Kapazität in kWh anhand der Produktnummer zurück (API liefert keinen Wh-Wert)
     private function GuessCapacityKwh(string $pn): float
     {
         return ['A17C0' => 1.6, 'A17C1' => 1.6, 'A17C2' => 3.2, 'A17B1' => 0.768][$pn] ?? 1.6;
@@ -357,6 +370,7 @@ class AnkerSolixDevice extends IPSModule
 
     // ── Hilfsmethoden ───────────────────────────────────────────────────────────
 
+    // Sucht das Gerät mit der konfigurierten Seriennummer in der Geräteliste; fällt auf erstes Gerät zurück
     private function FindDevice(array $list): ?array
     {
         if (empty($list)) return null;
@@ -369,6 +383,7 @@ class AnkerSolixDevice extends IPSModule
         return $list[0];
     }
 
+    // Sendet eine Anfrage an das übergeordnete IO-Modul und gibt die dekodierte Antwort zurück
     private function RequestIO(string $action, array $params): array
     {
         $payload           = $params;
@@ -388,6 +403,7 @@ class AnkerSolixDevice extends IPSModule
         return is_array($data) ? $data : [];
     }
 
+    // Gibt den ersten gesetzten Wert aus einer Liste möglicher Feldnamen zurück (API-Feldname-Varianten)
     private function FindKey(array $data, array $keys): mixed
     {
         foreach ($keys as $key) {
