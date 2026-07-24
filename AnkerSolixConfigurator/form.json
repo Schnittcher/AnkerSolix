@@ -39,6 +39,11 @@
     ],
     "actions": [
         {
+            "type": "Button",
+            "caption": "Debug: Raw data to log",
+            "onClick": "ANKERSOLIXCONFIG_DebugData($id);"
+        },
+        {
             "type": "Label",
             "caption": "Donations"
         },

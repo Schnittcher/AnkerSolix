@@ -81,6 +81,22 @@ class AnkerSolixKonfigurator extends IPSModule
         return json_encode($form);
     }
 
+    // Schreibt die vollständige Scene-Antwort aller Sites ins Nachrichtenarchiv zur Diagnose
+    public function DebugData(): void
+    {
+        try {
+            $sites = $this->RequestIO('GetSiteList', []);
+            foreach ($sites as $site) {
+                $siteId = $site['site_id'] ?? '';
+                $scene  = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
+                $this->LogMessage('AnkerSolix Konfigurator Debug Site ' . $siteId . ': ' . json_encode($scene, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), KL_MESSAGE);
+            }
+            echo 'Debug-Daten ins Symcon-Nachrichtenarchiv geschrieben.';
+        } catch (Exception $e) {
+            echo 'Fehler: ' . $e->getMessage();
+        }
+    }
+
     // ── Private ─────────────────────────────────────────────────────────────────
 
     private function RequestIO(string $action, array $params): array
