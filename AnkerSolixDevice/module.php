@@ -292,11 +292,12 @@ class AnkerSolixDevice extends IPSModule
         $device = $this->FindDevice($info['smartplug_list'] ?? []);
         if ($device === null) return;
 
-        $this->SetValue('Power',       (float)($this->FindKey($device, ['power', 'current_power_w']) ?? 0));
+        // current_power = aktueller Verbrauch in W; status "1" = Gerät online (kein Schaltzustand)
+        $this->SetValue('Power',       (float)($this->FindKey($device, ['current_power', 'power', 'current_power_w']) ?? 0));
         $this->SetValue('Voltage',     (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',     (float)($device['current'] ?? 0));
-        $this->SetValue('SwitchState', (bool)($device['status'] ?? $device['switch_status'] ?? false));
-        $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
+        $this->SetValue('SwitchState', (bool)($device['switch_status'] ?? ($device['status'] ?? '0') === '1'));
+        $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh', 'total_power']) ?? 0));
     }
 
     // Verarbeitet die Scene-Daten eines Smart Meters (liegt in grid_info.grid_list)
