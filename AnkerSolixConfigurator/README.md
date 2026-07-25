@@ -33,14 +33,18 @@ Erkennt automatisch alle Geräte der verbundenen Anker Solix Anlage und ermögli
 
 Der Konfigurator erkennt folgende Gerätetypen automatisch:
 
-| Typ | Beschreibung |
+| Typ | Bekannte Modelle |
 |---|---|
-| **Solarbank** | SOLIX E1600, E1600 Pro u. a. |
-| **Smart Plug** | SOLIX Smart Plug |
-| **Smart Meter** | Energiemessgerät am Netzanschluss |
+| **Solarbank** | SOLIX E1600, E1600 Pro (A17C0), E1600 Pro+ (A17C1), E2700 Pro (A17C5) u. a. |
+| **Smart Plug** | SOLIX Smart Plug (A17X8) |
+| **Smart Meter** | SOLIX Smart Meter (A17X7) — Energiemessgerät am Netzanschluss |
 | **Powerstation** | SOLIX C1000, C800 u. a. |
 | **Home Power** | SOLIX X1 und weitere Heimspeicher |
 
-## 4. Lizenz
+## 4. Debug-Funktion
+
+Der Konfigurator enthält eine Schaltfläche **„Debug: Rohdaten ins Log"**. Ein Klick darauf schreibt die vollständige API-Antwort aller Sites ins Symcon-Nachrichtenarchiv. Die Ausgabe kann bei Problemen (Gerät wird nicht gefunden, falsche Werte) zur Diagnose an den Entwickler weitergegeben werden.
+
+## 5. Lizenz
 
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

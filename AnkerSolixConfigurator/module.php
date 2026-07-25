@@ -5,8 +5,10 @@ class AnkerSolixKonfigurator extends IPSModule
     // Gerätetypen: info-Key in der Scene → Listen-Key → Typ-Label
     private const DEVICE_TYPES = [
         'solarbank'   => ['info' => 'solarbank_info',   'list' => 'solarbank_list',   'label' => 'Solarbank'],
-        'smartplug'   => ['info' => 'smart_plug_info',   'list' => 'smart_plug_list',   'label' => 'Smart Plug'],
-        'smart_meter' => ['info' => 'smart_meter_info', 'list' => 'smart_meter_list', 'label' => 'Smart Meter'],
+        // API-Inkonsistenz: info-Key hat Unterstrich (smart_plug_info), Listkey nicht (smartplug_list)
+        'smartplug'   => ['info' => 'smart_plug_info',   'list' => 'smartplug_list',   'label' => 'Smart Plug'],
+        // Smart Meter befindet sich laut API in grid_info.grid_list, nicht in smart_meter_info
+        'smart_meter' => ['info' => 'grid_info',        'list' => 'grid_list',        'label' => 'Smart Meter'],
         'pps'         => ['info' => 'pps_info',         'list' => 'pps_list',         'label' => 'Powerstation'],
         'home_power'  => ['info' => 'home_info',        'list' => 'home_device_list', 'label' => 'Home Power'],
     ];

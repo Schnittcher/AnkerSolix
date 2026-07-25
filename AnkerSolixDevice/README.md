@@ -41,7 +41,6 @@ Es werden nur die für den jeweiligen Gerätetyp relevanten Variablen angelegt.
 | Ident | Name | Einheit |
 |---|---|---|
 | `SolarPower` | Solarleistung | W |
-| `SolarPower` | Solarleistung | W |
 | `SOC` | Batterieladung | % |
 | `BatteryEnergy` | Batterieenergie | kWh |
 | `BatteryPower` | Batterieleistung | W (+ laden / − entladen) |
@@ -53,7 +52,7 @@ Es werden nur die für den jeweiligen Gerätetyp relevanten Variablen angelegt.
 | `HomeLoad` | Hausverbrauch | W |
 | `TotalEnergy` | Energie gesamt | kWh |
 
-### Smart Plug / Smart Meter / Powerstation
+### Smart Plug / Powerstation
 
 | Ident | Name | Einheit |
 |---|---|---|
@@ -62,6 +61,17 @@ Es werden nur die für den jeweiligen Gerätetyp relevanten Variablen angelegt.
 | `Current` | Strom | A |
 | `SwitchState` | Schalter | — (nur Smart Plug) |
 | `TotalEnergy` | Energie gesamt | kWh |
+
+### Smart Meter
+
+| Ident | Name | Einheit | Hinweis |
+|---|---|---|---|
+| `Power` | Netzleistung | W | positiv = Netzbezug, negativ = Einspeisung |
+| `Voltage` | Spannung | V | sofern vom Gerät geliefert |
+| `Current` | Strom | A | sofern vom Gerät geliefert |
+| `TotalEnergy` | Energie gesamt | kWh | sofern vom Gerät geliefert |
+
+Die Netzleistung ergibt sich aus `grid_to_home_power − photovoltaic_to_grid_power` der Anker-API.
 
 
 ## 4. PHP-Befehlsreferenz

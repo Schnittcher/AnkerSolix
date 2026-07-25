@@ -73,8 +73,10 @@ class AnkerSolixDevice extends IPSModule
             $this->LogMessage('AnkerSolix Debug Scene: ' . json_encode($scene, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), KL_MESSAGE);
 
             $type    = $this->ReadPropertyString('DeviceType');
-            $infoKey = ['solarbank' => 'solarbank_info', 'smartplug' => 'smart_plug_info', 'smart_meter' => 'smart_meter_info', 'pps' => 'pps_info', 'home_power' => 'home_info'][$type] ?? '';
-            $listKey = ['solarbank' => 'solarbank_list', 'smartplug' => 'smart_plug_list', 'smart_meter' => 'smart_meter_list', 'pps' => 'pps_list', 'home_power' => 'home_device_list'][$type] ?? '';
+            // smart_meter liegt in grid_info.grid_list, alle anderen im erwarteten *_info.*_list Schema
+            // smart_meter liegt in grid_info.grid_list; smartplug_list ohne Unterstrich (API-Inkonsistenz)
+            $infoKey = ['solarbank' => 'solarbank_info', 'smartplug' => 'smart_plug_info', 'smart_meter' => 'grid_info', 'pps' => 'pps_info', 'home_power' => 'home_info'][$type] ?? '';
+            $listKey = ['solarbank' => 'solarbank_list', 'smartplug' => 'smartplug_list',  'smart_meter' => 'grid_list', 'pps' => 'pps_list', 'home_power' => 'home_device_list'][$type] ?? '';
             $info    = $scene[$infoKey] ?? [];
             $list    = $info[$listKey] ?? [];
             $sn      = $this->ReadPropertyString('DeviceSn');
@@ -137,9 +139,9 @@ class AnkerSolixDevice extends IPSModule
     {
         try {
             $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $this->ReadPropertyString('SiteId')]);
-            $info  = $scene['solarbank_info'] ?? $scene['smart_plug_info'] ?? $scene['pps_info'] ?? $scene['home_info'] ?? [];
+            $info  = $scene['solarbank_info'] ?? $scene['smart_plug_info'] ?? $scene['pps_info'] ?? $scene['home_info'] ?? $scene['grid_info'] ?? [];
             $sn    = $this->ReadPropertyString('DeviceSn');
-            foreach (['solarbank_list', 'smart_plug_list', 'pps_list', 'home_device_list', 'smart_meter_list'] as $listKey) {
+            foreach (['solarbank_list', 'smartplug_list', 'pps_list', 'home_device_list', 'grid_list'] as $listKey) {
                 foreach ($info[$listKey] ?? [] as $d) {
                     if (($d['device_sn'] ?? '') === $sn && !empty($d['device_img'])) {
                         // URL in Attribut statt Property speichern — kein ApplyChanges nötig
@@ -286,7 +288,8 @@ class AnkerSolixDevice extends IPSModule
     private function ProcessSmartPlug(array $scene): void
     {
         $info   = $scene['smart_plug_info'] ?? [];
-        $device = $this->FindDevice($info['smart_plug_list'] ?? []);
+        // API verwendet smartplug_list (ohne Unterstrich), nicht smart_plug_list
+        $device = $this->FindDevice($info['smartplug_list'] ?? []);
         if ($device === null) return;
 
         $this->SetValue('Power',       (float)($this->FindKey($device, ['power', 'current_power_w']) ?? 0));
@@ -296,15 +299,21 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
     }
 
-    // Verarbeitet die Scene-Daten eines Smart Meters
+    // Verarbeitet die Scene-Daten eines Smart Meters (liegt in grid_info.grid_list)
     private function ProcessSmartMeter(array $scene): void
     {
-        $info   = $scene['smart_meter_info'] ?? [];
-        $device = $this->FindDevice($info['smart_meter_list'] ?? [])
+        $info   = $scene['grid_info'] ?? [];
+        $device = $this->FindDevice($info['grid_list'] ?? [])
                   ?? (isset($info['device_sn']) ? $info : null);
         if ($device === null) return;
 
-        $this->SetValue('Power',       (float)($this->FindKey($device, ['power', 'grid_power_w', 'current_power']) ?? 0));
+        // Netzleistung: positiv = Bezug vom Netz, negativ = Einspeisung ins Netz
+        // photovoltaic_to_grid_power kann negativ sein (API-Vorzeichen = Einspeisung positiv)
+        $toHome   = (float)($info['grid_to_home_power']         ?? 0);
+        $toGrid   = (float)($info['photovoltaic_to_grid_power'] ?? 0);
+        $netPower = $toHome - $toGrid;
+
+        $this->SetValue('Power',       $netPower);
         $this->SetValue('Voltage',     (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',     (float)($device['current'] ?? 0));
         $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
