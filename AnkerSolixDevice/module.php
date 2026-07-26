@@ -57,6 +57,7 @@ class AnkerSolixDevice extends IPSModule
 
         try {
             $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $this->ReadPropertyString('SiteId')]);
+            $this->SendDebug('UpdateData', json_encode($scene, JSON_UNESCAPED_UNICODE), 0);
             $this->ProcessScene($scene);
             $this->SetStatus(102);
         } catch (Exception $e) {
@@ -93,7 +94,6 @@ class AnkerSolixDevice extends IPSModule
         }
     }
 
-    // Pflichtmethode für Splitter-Kindmodule — verarbeitet keinen Push vom IO
     public function ReceiveData($JSONString): void
     {
     }
@@ -180,12 +180,12 @@ class AnkerSolixDevice extends IPSModule
     // Legt nur die für den Gerätetyp relevanten Variablen an bzw. entfernt nicht benötigte
     private function MaintainVariablesForType(string $type): void
     {
-        $isSolarbank = in_array($type, ['solarbank', 'pps', 'home_power']);
-        $isPlug      = in_array($type, ['smartplug', 'smart_meter', 'pps']);
-        $hasBattery  = in_array($type, ['solarbank', 'pps', 'home_power']);
-        $hasSolar    = in_array($type, ['solarbank', 'home_power']);
-        $hasSwitch   = $type === 'smartplug';
-
+        $isSolarbank  = in_array($type, ['solarbank', 'pps', 'home_power']);
+        $hasBattery   = in_array($type, ['solarbank', 'pps', 'home_power']);
+        $hasSolar     = in_array($type, ['solarbank', 'home_power']);
+        $hasPower     = in_array($type, ['smartplug', 'smart_meter', 'pps']);
+        $hasVoltCurr  = in_array($type, ['pps', 'smart_meter']);          // Smart Plug liefert keine V/A
+        $hasTotalPlug = in_array($type, ['pps', 'smart_meter']);          // Smart Plug liefert keine kWh
         $this->MaintainVariable('SolarPower',   $this->Translate('Solar Power'),      VARIABLETYPE_FLOAT, self::WATT, 10, $hasSolar);
 
         $this->MaintainVariable('SOC',           $this->Translate('Battery Level'),    VARIABLETYPE_FLOAT, self::PCT,  20, $hasBattery);
@@ -199,13 +199,11 @@ class AnkerSolixDevice extends IPSModule
         $this->MaintainVariable('GridExport',      $this->Translate('Grid Export'),      VARIABLETYPE_FLOAT, self::WATT, 65, $isSolarbank);
         $this->MaintainVariable('HomeLoad',        $this->Translate('Home Load'),        VARIABLETYPE_FLOAT, self::WATT, 70, $isSolarbank);
 
-        $this->MaintainVariable('TotalEnergy', $this->Translate('Total Energy'), VARIABLETYPE_FLOAT, self::KWH, 75, true);
+        $this->MaintainVariable('TotalEnergy', $this->Translate('Total Energy'), VARIABLETYPE_FLOAT, self::KWH, 75, $isSolarbank || $hasTotalPlug);
 
-        $this->MaintainVariable('Power',       $this->Translate('Power'),        VARIABLETYPE_FLOAT,   self::WATT, 80, $isPlug);
-        $this->MaintainVariable('Voltage',     $this->Translate('Voltage'),      VARIABLETYPE_FLOAT,   self::VOLT, 90, $isPlug);
-        $this->MaintainVariable('Current',     $this->Translate('Current'),      VARIABLETYPE_FLOAT,   self::AMP,  100, $isPlug);
-        $this->MaintainVariable('SwitchState', $this->Translate('Switch'),       VARIABLETYPE_BOOLEAN,
-            ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH], 110, $hasSwitch);
+        $this->MaintainVariable('Power',       $this->Translate('Power'),   VARIABLETYPE_FLOAT,   self::WATT, 80, $hasPower);
+        $this->MaintainVariable('Voltage',     $this->Translate('Voltage'), VARIABLETYPE_FLOAT,   self::VOLT, 90, $hasVoltCurr);
+        $this->MaintainVariable('Current',     $this->Translate('Current'), VARIABLETYPE_FLOAT,   self::AMP,  100, $hasVoltCurr);
     }
 
     // ── Scene-Verarbeitung ───────────────────────────────────────────────────────
@@ -227,12 +225,22 @@ class AnkerSolixDevice extends IPSModule
     {
         $info   = $scene['solarbank_info'] ?? [];
         $device = $this->FindDevice($info['solarbank_list'] ?? []);
-        if ($device === null) return;
+        if ($device === null) {
+            $this->SendDebug('ProcessSolarbank', 'Kein Gerät gefunden (solarbank_list leer oder SN nicht gefunden)', 0);
+            return;
+        }
+        $this->SendDebug('ProcessSolarbank', 'Gerät: ' . ($device['device_sn'] ?? '?') . ' / ' . ($device['device_name'] ?? '?'), 0);
 
-        $this->SetValue('SOC',          (float)($device['battery_power'] ?? $device['soc'] ?? 0));
-        $this->SetValue('SolarPower',   (float)($device['photovoltaic_power'] ?? $info['total_photovoltaic_power'] ?? 0));
-        $this->SetValue('OutputPower',  (float)($device['output_power'] ?? $info['total_output_power'] ?? 0));
-        $this->SetValue('HomeLoad',     (float)($scene['home_load_power'] ?? $info['to_home_load'] ?? 0));
+        $soc        = (float)($device['battery_power'] ?? $device['soc'] ?? 0);
+        $solar      = (float)($device['photovoltaic_power'] ?? $info['total_photovoltaic_power'] ?? 0);
+        $output     = (float)($device['output_power'] ?? $info['total_output_power'] ?? 0);
+        $homeLoad   = (float)($scene['home_load_power'] ?? $info['to_home_load'] ?? 0);
+
+        $this->SetValue('SOC',         $soc);
+        $this->SetValue('SolarPower',  $solar);
+        $this->SetValue('OutputPower', $output);
+        $this->SetValue('HomeLoad',    $homeLoad);
+        $this->SendDebug('ProcessSolarbank', "SOC=$soc% | Solar=$solar W | Output=$output W | HomeLoad=$homeLoad W", 0);
 
         // charging_status: 1=nur Laden, 2=Entladen, 3=Solar aktiv (bat_charge_power direkt verwertbar)
         // Bei Status 2 enthält charging_power die Entladeleistung; bei 1/3 die Ladeleistung
@@ -240,6 +248,7 @@ class AnkerSolixDevice extends IPSModule
         $chargingPower  = (float)($device['charging_power'] ?? 0);
         $batCharge      = (float)($device['bat_charge_power']    ?? 0);
         $batDischarge   = (float)($device['bat_discharge_power'] ?? 0);
+        $this->SendDebug('ProcessSolarbank', "charging_status=$chargingStatus | charging_power=$chargingPower | bat_charge=$batCharge | bat_discharge=$batDischarge", 0);
 
         if ($chargingStatus === 2) {
             $charge    = 0.0;
@@ -256,10 +265,12 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('BatteryPower',   $charge > 0 ? $charge : -$discharge);
         $this->SetValue('Chargepower',    $charge);
         $this->SetValue('Dischargepower', $discharge);
+        $this->SendDebug('ProcessSolarbank', "Charge=$charge W | Discharge=$discharge W", 0);
 
         // retain_load enthält Einspeisevorgabe als String z.B. "130W"
         $retainLoad = preg_replace('/[^0-9.]/', '', $scene['retain_load'] ?? '');
-        $this->SetValue('GridExport', $retainLoad !== '' ? (float)$retainLoad : (float)($info['total_output_power'] ?? 0));
+        $gridExport = $retainLoad !== '' ? (float)$retainLoad : (float)($info['total_output_power'] ?? 0);
+        $this->SetValue('GridExport', $gridExport);
 
         if ($charge > 0) {
             $status = $this->Translate('Charging');
@@ -271,10 +282,12 @@ class AnkerSolixDevice extends IPSModule
             $status = $this->Translate('Standby');
         }
         $this->SetValue('OperatingStatus', $status);
+        $this->SendDebug('ProcessSolarbank', "Status=$status | GridExport=$gridExport W", 0);
 
         // Batterieenergie aus SOC und nominaler Kapazität berechnen (API liefert keinen Wh-Wert)
-        $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '');
-        $this->SetValue('BatteryEnergy', round($nominalKwh * (float)($device['battery_power'] ?? 0) / 100, 2));
+        $nominalKwh  = $this->GuessCapacityKwh($device['device_pn'] ?? '');
+        $battEnergy  = round($nominalKwh * $soc / 100, 2);
+        $this->SetValue('BatteryEnergy', $battEnergy);
 
         // Gesamtenergie aus statistics-Array (type=1 entspricht kWh-Gesamtertrag)
         $totalEnergy = 0.0;
@@ -282,6 +295,7 @@ class AnkerSolixDevice extends IPSModule
             if (($stat['type'] ?? '') === '1') { $totalEnergy = (float)$stat['total']; break; }
         }
         $this->SetValue('TotalEnergy', $totalEnergy);
+        $this->SendDebug('ProcessSolarbank', "BatteryEnergy=$battEnergy kWh | TotalEnergy=$totalEnergy kWh", 0);
     }
 
     // Verarbeitet die Scene-Daten eines Smart Plugs
@@ -290,14 +304,19 @@ class AnkerSolixDevice extends IPSModule
         $info   = $scene['smart_plug_info'] ?? [];
         // API verwendet smartplug_list (ohne Unterstrich), nicht smart_plug_list
         $device = $this->FindDevice($info['smartplug_list'] ?? []);
-        if ($device === null) return;
+        if ($device === null) {
+            $this->SendDebug('ProcessSmartPlug', 'Kein Gerät gefunden (smartplug_list leer oder SN nicht gefunden)', 0);
+            return;
+        }
+        $this->SendDebug('ProcessSmartPlug', 'Gerät: ' . ($device['device_sn'] ?? '?') . ' / ' . ($device['device_name'] ?? '?'), 0);
 
         // current_power = aktueller Verbrauch in W; status "1" = Gerät online (kein Schaltzustand)
-        $this->SetValue('Power',       (float)($this->FindKey($device, ['current_power', 'power', 'current_power_w']) ?? 0));
-        $this->SetValue('Voltage',     (float)($device['voltage'] ?? 0));
-        $this->SetValue('Current',     (float)($device['current'] ?? 0));
-        $this->SetValue('SwitchState', (bool)($device['switch_status'] ?? ($device['status'] ?? '0') === '1'));
-        $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh', 'total_power']) ?? 0));
+        // API liefert pro Plug nur current_power und status — Spannung/Strom/Energie nicht verfügbar
+        $power = (float)($this->FindKey($device, ['current_power', 'power', 'current_power_w']) ?? 0);
+        $sw    = (bool)($device['switch_status'] ?? ($device['status'] ?? '0') === '1');
+
+        $this->SetValue('Power', $power);
+        $this->SendDebug('ProcessSmartPlug', "Power=$power W", 0);
     }
 
     // Verarbeitet die Scene-Daten eines Smart Meters (liegt in grid_info.grid_list)
@@ -306,7 +325,11 @@ class AnkerSolixDevice extends IPSModule
         $info   = $scene['grid_info'] ?? [];
         $device = $this->FindDevice($info['grid_list'] ?? [])
                   ?? (isset($info['device_sn']) ? $info : null);
-        if ($device === null) return;
+        if ($device === null) {
+            $this->SendDebug('ProcessSmartMeter', 'Kein Gerät gefunden (grid_list leer oder SN nicht gefunden)', 0);
+            return;
+        }
+        $this->SendDebug('ProcessSmartMeter', 'Gerät: ' . ($device['device_sn'] ?? '?') . ' / ' . ($device['device_name'] ?? '?'), 0);
 
         // Netzleistung: positiv = Bezug vom Netz, negativ = Einspeisung ins Netz
         // photovoltaic_to_grid_power kann negativ sein (API-Vorzeichen = Einspeisung positiv)
@@ -318,6 +341,7 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('Voltage',     (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',     (float)($device['current'] ?? 0));
         $this->SetValue('TotalEnergy', (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
+        $this->SendDebug('ProcessSmartMeter', "grid_to_home=$toHome W | pv_to_grid=$toGrid W | NetPower=$netPower W", 0);
     }
 
     // Verarbeitet die Scene-Daten einer Powerstation (PPS)
@@ -325,15 +349,24 @@ class AnkerSolixDevice extends IPSModule
     {
         $info   = $scene['pps_info'] ?? [];
         $device = $this->FindDevice($info['pps_list'] ?? []);
-        if ($device === null) return;
+        if ($device === null) {
+            $this->SendDebug('ProcessPPS', 'Kein Gerät gefunden (pps_list leer oder SN nicht gefunden)', 0);
+            return;
+        }
+        $this->SendDebug('ProcessPPS', 'Gerät: ' . ($device['device_sn'] ?? '?') . ' / ' . ($device['device_name'] ?? '?'), 0);
 
-        $this->SetValue('SOC',           (float)($device['battery_power'] ?? $device['soc'] ?? 0));
+        $soc    = (float)($device['battery_power'] ?? $device['soc'] ?? 0);
+        $output = (float)($this->FindKey($device, ['output_power', 'ac_out_power']) ?? 0);
+        $power  = (float)($this->FindKey($device, ['input_power', 'charging_power']) ?? 0);
+
+        $this->SetValue('SOC',           $soc);
         $this->SetValue('BatteryEnergy', (float)($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
-        $this->SetValue('OutputPower',   (float)($this->FindKey($device, ['output_power', 'ac_out_power']) ?? 0));
-        $this->SetValue('Power',         (float)($this->FindKey($device, ['input_power', 'charging_power']) ?? 0));
+        $this->SetValue('OutputPower',   $output);
+        $this->SetValue('Power',         $power);
         $this->SetValue('Voltage',       (float)($device['voltage'] ?? 0));
         $this->SetValue('Current',       (float)($device['current'] ?? 0));
         $this->SetValue('TotalEnergy',   (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
+        $this->SendDebug('ProcessPPS', "SOC=$soc% | Output=$output W | Input=$power W", 0);
     }
 
     // Verarbeitet die Scene-Daten einer Home Power Station
@@ -342,21 +375,30 @@ class AnkerSolixDevice extends IPSModule
         $info   = $scene['home_info'] ?? [];
         $device = $this->FindDevice($info['home_device_list'] ?? [])
                   ?? (isset($info['device_sn']) ? $info : null);
-        if ($device === null) return;
+        if ($device === null) {
+            $this->SendDebug('ProcessHomePower', 'Kein Gerät gefunden (home_device_list leer oder SN nicht gefunden)', 0);
+            return;
+        }
+        $this->SendDebug('ProcessHomePower', 'Gerät: ' . ($device['device_sn'] ?? '?') . ' / ' . ($device['device_name'] ?? '?'), 0);
 
-        $this->SetValue('SOC',        (float)($device['battery_power'] ?? $device['soc'] ?? 0));
-        $this->SetValue('SolarPower', (float)($this->FindKey($device, ['solar_power_w', 'pv_power']) ?? 0));
+        $soc      = (float)($device['battery_power'] ?? $device['soc'] ?? 0);
+        $solar    = (float)($this->FindKey($device, ['solar_power_w', 'pv_power']) ?? 0);
+        $this->SetValue('SOC',        $soc);
+        $this->SetValue('SolarPower', $solar);
 
         $hpCharge    = (float)($this->FindKey($device, ['charging_power', 'bat_charge_power']) ?? 0);
         $hpDischarge = (float)($this->FindKey($device, ['discharging_power', 'bat_discharge_power']) ?? 0);
         $this->SetValue('BatteryPower',   $hpCharge > 0 ? $hpCharge : -$hpDischarge);
         $this->SetValue('Chargepower',    $hpCharge);
         $this->SetValue('Dischargepower', $hpDischarge);
+        $this->SendDebug('ProcessHomePower', "SOC=$soc% | Solar=$solar W | Charge=$hpCharge W | Discharge=$hpDischarge W", 0);
 
         $hpOutput = (float)($this->FindKey($device, ['output_power', 'ac_out_power']) ?? 0);
+        $hpGrid   = (float)($this->FindKey($device, ['output_home_load', 'grid_to_home_load']) ?? $hpOutput);
+        $hpHome   = (float)($this->FindKey($scene,  ['home_load_power', 'load_power_w']) ?? 0);
         $this->SetValue('OutputPower', $hpOutput);
-        $this->SetValue('GridExport',  (float)($this->FindKey($device, ['output_home_load', 'grid_to_home_load']) ?? $hpOutput));
-        $this->SetValue('HomeLoad',    (float)($this->FindKey($scene, ['home_load_power', 'load_power_w']) ?? 0));
+        $this->SetValue('GridExport',  $hpGrid);
+        $this->SetValue('HomeLoad',    $hpHome);
 
         if ($hpCharge > 0) {
             $hpStatus = $this->Translate('Charging');
@@ -370,6 +412,7 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('OperatingStatus', $hpStatus);
         $this->SetValue('BatteryEnergy', (float)($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
         $this->SetValue('TotalEnergy',   (float)($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
+        $this->SendDebug('ProcessHomePower', "Output=$hpOutput W | Grid=$hpGrid W | HomeLoad=$hpHome W | Status=$hpStatus", 0);
     }
 
     // Gibt die nominale Kapazität in kWh anhand der Produktnummer zurück (API liefert keinen Wh-Wert)

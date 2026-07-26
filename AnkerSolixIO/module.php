@@ -227,7 +227,7 @@ class AnkerSolixIO extends IPSModule
 
     // ── HTTP ────────────────────────────────────────────────────────────────────
 
-    private function ApiRequest(string $path, array $payload, ?array $token): array
+    private function ApiRequest(string $path, array $payload, ?array $token, string $method = 'POST'): array
     {
         $country = $this->ReadPropertyString('Country');
         $tzMs    = $this->GetTimezoneOffsetMs();
@@ -250,15 +250,22 @@ class AnkerSolixIO extends IPSModule
         }
 
         $ch = curl_init(ANKERSOLIX_API_BASE . $path);
-        curl_setopt_array($ch, [
+        $opts = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => json_encode($payload),
-        ]);
+        ];
+
+        if ($method === 'GET') {
+            $opts[CURLOPT_HTTPGET] = true;
+        } else {
+            $opts[CURLOPT_POST]       = true;
+            $opts[CURLOPT_POSTFIELDS] = json_encode($payload);
+        }
+
+        curl_setopt_array($ch, $opts);
 
         $body  = curl_exec($ch);
         $errno = curl_errno($ch);
