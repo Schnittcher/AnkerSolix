@@ -168,9 +168,20 @@ class AnkerSolixIO extends IPSModule
 
         $config = ['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC];
 
-        // Auf Linux muss openssl.cnf ggf. explizit angegeben werden
-        foreach (['/etc/ssl/openssl.cnf', '/usr/lib/ssl/openssl.cnf', '/usr/local/ssl/openssl.cnf'] as $cnf) {
-            if (is_file($cnf)) {
+        $cnfPaths = [
+            getenv('OPENSSL_CONF') ?: '',
+            // Windows (IP-Symcon bringt eigenes OpenSSL mit)
+            IPS_GetKernelDir() . 'extern\\openssl\\openssl.cnf',
+            IPS_GetKernelDir() . 'openssl\\openssl.cnf',
+            'C:\\Program Files\\OpenSSL-Win64\\bin\\openssl.cnf',
+            'C:\\OpenSSL-Win64\\bin\\openssl.cnf',
+            // Linux
+            '/etc/ssl/openssl.cnf',
+            '/usr/lib/ssl/openssl.cnf',
+            '/usr/local/ssl/openssl.cnf',
+        ];
+        foreach ($cnfPaths as $cnf) {
+            if ($cnf !== '' && is_file($cnf)) {
                 $config['config'] = $cnf;
                 break;
             }
@@ -186,7 +197,8 @@ class AnkerSolixIO extends IPSModule
         $y       = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
         $pubHex  = '04' . bin2hex($x) . bin2hex($y);
 
-        openssl_pkey_export($key, $privPem, null, isset($config['config']) ? ['config' => $config['config']] : []);
+        $exportConfig = isset($config['config']) ? ['config' => $config['config']] : [];
+        openssl_pkey_export($key, $privPem, null, $exportConfig);
         $this->WriteAttributeString('ClientPrivateKey', $privPem);
         $this->WriteAttributeString('ClientPublicKey', $pubHex);
 
