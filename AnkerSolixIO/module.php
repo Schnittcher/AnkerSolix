@@ -170,11 +170,8 @@ class AnkerSolixIO extends IPSModule
 
         $cnfPaths = [
             getenv('OPENSSL_CONF') ?: '',
-            // Windows (IP-Symcon bringt eigenes OpenSSL mit)
-            IPS_GetKernelDir() . 'extern\\openssl\\openssl.cnf',
-            IPS_GetKernelDir() . 'openssl\\openssl.cnf',
-            'C:\\Program Files\\OpenSSL-Win64\\bin\\openssl.cnf',
-            'C:\\OpenSSL-Win64\\bin\\openssl.cnf',
+            // Windows: PHP-Bundle-Verzeichnis dynamisch ermitteln (funktioniert unabhängig von der PHP-Version)
+            dirname(PHP_BINARY) . '\\extras\\ssl\\openssl.cnf',
             // Linux
             '/etc/ssl/openssl.cnf',
             '/usr/lib/ssl/openssl.cnf',
