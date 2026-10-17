@@ -69,7 +69,7 @@
             "caption": "Debug: Raw data to log",
             "onClick": "ANKERSOLIX_DebugData($id);"
         },
-                {
+        {
             "type": "Label",
             "caption": "Donations"
         },

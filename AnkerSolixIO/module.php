@@ -1,8 +1,10 @@
 <?php
 
-define('ANKERSOLIX_GUID_UP',   '{56367DF0-FB25-4588-9E60-C19AFB148E76}');
+declare(strict_types=1);
+
+define('ANKERSOLIX_GUID_UP', '{56367DF0-FB25-4588-9E60-C19AFB148E76}');
 define('ANKERSOLIX_GUID_DOWN', '{BAB5A1A2-56DA-4956-82EC-C997174D9AB6}');
-define('ANKERSOLIX_API_BASE',       'https://ankerpower-api-eu.anker.com');
+define('ANKERSOLIX_API_BASE', 'https://ankerpower-api-eu.anker.com');
 define('ANKERSOLIX_SERVER_PUBLIC_KEY', '04c5c00c4f8d1197cc7c3167c52bf7acb054d722f0ef08dcd7e0883236e0d72a3868d9750cb47fa4619248f3d83f0f662671dadc6e2d31c2f41db0161651c7c076');
 
 class AnkerSolixIO extends IPSModule
@@ -44,7 +46,7 @@ class AnkerSolixIO extends IPSModule
     public function ForwardData($JSONString): string
     {
         $request = json_decode($JSONString, true);
-        $action  = $request['Action'] ?? '';
+        $action = $request['Action'] ?? '';
 
         try {
             switch ($action) {
@@ -87,14 +89,14 @@ class AnkerSolixIO extends IPSModule
 
     public function GetSiteList(): array
     {
-        $token    = $this->EnsureAuthenticated();
+        $token = $this->EnsureAuthenticated();
         $response = $this->ApiRequest('/power_service/v1/site/get_site_list', ['from' => 'solarbank'], $token);
         return $response['data']['site_list'] ?? [];
     }
 
     public function GetSceneInfo(string $siteId): array
     {
-        $token    = $this->EnsureAuthenticated();
+        $token = $this->EnsureAuthenticated();
         $response = $this->ApiRequest('/power_service/v1/site/get_scen_info', ['site_id' => $siteId], $token);
         return $response['data'] ?? [];
     }
@@ -103,7 +105,7 @@ class AnkerSolixIO extends IPSModule
 
     private function EnsureAuthenticated(): array
     {
-        $token  = $this->ReadAttributeString('AuthToken');
+        $token = $this->ReadAttributeString('AuthToken');
         $expiry = $this->ReadAttributeInteger('TokenExpiry');
 
         if ($token !== '' && time() < $expiry) {
@@ -119,9 +121,9 @@ class AnkerSolixIO extends IPSModule
 
     private function Login(): ?array
     {
-        $email    = $this->ReadPropertyString('Email');
+        $email = $this->ReadPropertyString('Email');
         $password = $this->ReadPropertyString('Password');
-        $country  = $this->ReadPropertyString('Country');
+        $country = $this->ReadPropertyString('Country');
 
         if ($email === '' || $password === '') {
             $this->SetStatus(201);
@@ -135,7 +137,7 @@ class AnkerSolixIO extends IPSModule
             'email'              => $email,
             'password'           => $this->EncryptPassword($password),
             'time_zone'          => $this->GetTimezoneOffsetMs(),
-            'transaction'        => (string)(int)(microtime(true) * 1000),
+            'transaction'        => (string) (int) (microtime(true) * 1000),
         ];
 
         $response = $this->ApiRequest('/passport/login', $payload, null);
@@ -147,7 +149,7 @@ class AnkerSolixIO extends IPSModule
         }
 
         $authToken = $response['data']['auth_token'];
-        $userId    = $response['data']['user_id'] ?? '';
+        $userId = $response['data']['user_id'] ?? '';
 
         $this->WriteAttributeString('AuthToken', $authToken);
         $this->WriteAttributeString('UserId', $userId);
@@ -190,9 +192,9 @@ class AnkerSolixIO extends IPSModule
         }
 
         $details = openssl_pkey_get_details($key);
-        $x       = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
-        $y       = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
-        $pubHex  = '04' . bin2hex($x) . bin2hex($y);
+        $x = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
+        $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
+        $pubHex = '04' . bin2hex($x) . bin2hex($y);
 
         $exportConfig = isset($config['config']) ? ['config' => $config['config']] : [];
         openssl_pkey_export($key, $privPem, null, $exportConfig);
@@ -211,10 +213,10 @@ class AnkerSolixIO extends IPSModule
         }
 
         $serverPubRaw = hex2bin(substr(ANKERSOLIX_SERVER_PUBLIC_KEY, 2));
-        $x            = substr($serverPubRaw, 0, 32);
-        $y            = substr($serverPubRaw, 32, 32);
+        $x = substr($serverPubRaw, 0, 32);
+        $y = substr($serverPubRaw, 32, 32);
         $serverPubKey = openssl_pkey_get_public($this->BuildEcSpki($x, $y));
-        $clientKey    = openssl_pkey_get_private($privPem);
+        $clientKey = openssl_pkey_get_private($privPem);
         $sharedSecret = openssl_pkey_derive($serverPubKey, $clientKey);
 
         $encrypted = openssl_encrypt($password, 'AES-256-CBC', $sharedSecret, OPENSSL_RAW_DATA, substr($sharedSecret, 0, 16));
@@ -224,7 +226,7 @@ class AnkerSolixIO extends IPSModule
     private function BuildEcSpki(string $x, string $y): string
     {
         $header = hex2bin('3059301306072a8648ce3d020106082a8648ce3d030107034200');
-        $der    = $header . "\x04" . $x . $y;
+        $der = $header . "\x04" . $x . $y;
         return "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n";
     }
 
@@ -239,8 +241,8 @@ class AnkerSolixIO extends IPSModule
     private function ApiRequest(string $path, array $payload, ?array $token, string $method = 'POST'): array
     {
         $country = $this->ReadPropertyString('Country');
-        $tzMs    = $this->GetTimezoneOffsetMs();
-        $sign    = ($tzMs >= 0 ? '+' : '-') . sprintf('%02d:%02d', abs((int)($tzMs / 3600000)), abs((int)(($tzMs % 3600000) / 60000)));
+        $tzMs = $this->GetTimezoneOffsetMs();
+        $sign = ($tzMs >= 0 ? '+' : '-') . sprintf('%02d:%02d', abs((int) ($tzMs / 3600000)), abs((int) (($tzMs % 3600000) / 60000)));
 
         $headers = [
             'Content-Type: application/json',
@@ -270,13 +272,13 @@ class AnkerSolixIO extends IPSModule
         if ($method === 'GET') {
             $opts[CURLOPT_HTTPGET] = true;
         } else {
-            $opts[CURLOPT_POST]       = true;
+            $opts[CURLOPT_POST] = true;
             $opts[CURLOPT_POSTFIELDS] = json_encode($payload);
         }
 
         curl_setopt_array($ch, $opts);
 
-        $body  = curl_exec($ch);
+        $body = curl_exec($ch);
         $errno = curl_errno($ch);
         $error = curl_error($ch);
         curl_close($ch);

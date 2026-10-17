@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 class AnkerSolixKonfigurator extends IPSModule
 {
     // Gerätetypen: info-Key in der Scene → Listen-Key → Typ-Label
@@ -37,39 +39,39 @@ class AnkerSolixKonfigurator extends IPSModule
 
     public function GetConfigurationForm(): string
     {
-        $form   = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         $values = [];
 
         try {
-                $sites = $this->RequestIO('GetSiteList', []);
+            $sites = $this->RequestIO('GetSiteList', []);
 
-                foreach ($sites as $site) {
-                    $siteId   = $site['site_id']  ?? '';
-                    $siteName = $site['site_name'] ?? $siteId;
-                    $scene    = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
+            foreach ($sites as $site) {
+                $siteId = $site['site_id'] ?? '';
+                $siteName = $site['site_name'] ?? $siteId;
+                $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
 
-                    $foundAny = false;
-                    foreach (self::DEVICE_TYPES as $typeKey => $typeDef) {
-                        $infoBlock  = $scene[$typeDef['info']] ?? [];
-                        $deviceList = $infoBlock[$typeDef['list']] ?? [];
+                $foundAny = false;
+                foreach (self::DEVICE_TYPES as $typeKey => $typeDef) {
+                    $infoBlock = $scene[$typeDef['info']] ?? [];
+                    $deviceList = $infoBlock[$typeDef['list']] ?? [];
 
-                        // Manche Typen liefern das Gerät direkt im info-Block (kein Unter-Array)
-                        if (empty($deviceList) && !empty($infoBlock) && isset($infoBlock['device_sn'])) {
-                            $deviceList = [$infoBlock];
-                        }
-
-                        foreach ($deviceList as $device) {
-                            $deviceSn   = $device['device_sn']   ?? '';
-                            $deviceName = $device['device_name'] ?? $device['alias_name'] ?? $typeDef['label'];
-                            $values[]   = $this->BuildRow($siteName, $deviceName, $typeDef['label'], $deviceSn, $siteId, $typeKey);
-                            $foundAny   = true;
-                        }
+                    // Manche Typen liefern das Gerät direkt im info-Block (kein Unter-Array)
+                    if (empty($deviceList) && !empty($infoBlock) && isset($infoBlock['device_sn'])) {
+                        $deviceList = [$infoBlock];
                     }
 
-                    if (!$foundAny) {
-                        $values[] = $this->BuildRow($siteName, 'Keine Geräte', '-', '', $siteId, '');
+                    foreach ($deviceList as $device) {
+                        $deviceSn = $device['device_sn'] ?? '';
+                        $deviceName = $device['device_name'] ?? $device['alias_name'] ?? $typeDef['label'];
+                        $values[] = $this->BuildRow($siteName, $deviceName, $typeDef['label'], $deviceSn, $siteId, $typeKey);
+                        $foundAny = true;
                     }
                 }
+
+                if (!$foundAny) {
+                    $values[] = $this->BuildRow($siteName, 'Keine Geräte', '-', '', $siteId, '');
+                }
+            }
         } catch (Exception $e) {
             $this->LogMessage('Anker Solix Konfigurator: ' . $e->getMessage(), KL_ERROR);
         }
@@ -90,7 +92,7 @@ class AnkerSolixKonfigurator extends IPSModule
             $sites = $this->RequestIO('GetSiteList', []);
             foreach ($sites as $site) {
                 $siteId = $site['site_id'] ?? '';
-                $scene  = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
+                $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
                 $this->LogMessage('AnkerSolix Konfigurator Debug Site ' . $siteId . ': ' . json_encode($scene, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), KL_MESSAGE);
             }
             echo 'Debug-Daten ins Symcon-Nachrichtenarchiv geschrieben.';
@@ -103,7 +105,7 @@ class AnkerSolixKonfigurator extends IPSModule
 
     private function RequestIO(string $action, array $params): array
     {
-        $payload           = $params;
+        $payload = $params;
         $payload['DataID'] = '{56367DF0-FB25-4588-9E60-C19AFB148E76}';
         $payload['Action'] = $action;
 
