@@ -52,14 +52,19 @@ Es werden nur die für den jeweiligen Gerätetyp relevanten Variablen angelegt.
 | `HomeLoad` | Hausverbrauch | W |
 | `TotalEnergy` | Energie gesamt | kWh |
 
-### Smart Plug / Powerstation
+### Smart Plug
+
+| Ident | Name | Einheit |
+|---|---|---|
+| `Power` | Leistung | W |
+
+### Powerstation
 
 | Ident | Name | Einheit |
 |---|---|---|
 | `Power` | Leistung | W |
 | `Voltage` | Spannung | V |
 | `Current` | Strom | A |
-| `SwitchState` | Schalter | — (nur Smart Plug) |
 | `TotalEnergy` | Energie gesamt | kWh |
 
 ### Smart Meter
