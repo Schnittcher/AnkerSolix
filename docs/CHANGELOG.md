@@ -1,9 +1,9 @@
 # Changelog
 
-## 17.10.2026 - Version 1.1
+## 19.10.2026 - Version 1.1
 
 ### Fixes
-- EC-Schlüsselgenerierung auf Windows behoben: `openssl.cnf` wird über `PHP_BINARY` automatisch gefunden.
+- EC-Schlüsselgenerierung auf Windows behoben: temporäre minimale `openssl.cnf` wird zur Laufzeit erzeugt, kein Suchen nach installierten Pfaden mehr.
 
 ## 17.10.2026 - Version 1.0
 
