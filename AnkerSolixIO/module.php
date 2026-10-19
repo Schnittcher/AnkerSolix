@@ -168,26 +168,18 @@ class AnkerSolixIO extends IPSModule
             return $stored;
         }
 
-        $config = ['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC];
+        $tmpCnf = tempnam(sys_get_temp_dir(), 'ssl_') . '.cnf';
+        file_put_contents($tmpCnf, "[req]\n");
 
-        $cnfPaths = [
-            getenv('OPENSSL_CONF') ?: '',
-            // Windows: PHP-Bundle-Verzeichnis dynamisch ermitteln (funktioniert unabhängig von der PHP-Version)
-            dirname(PHP_BINARY) . '\\extras\\ssl\\openssl.cnf',
-            // Linux
-            '/etc/ssl/openssl.cnf',
-            '/usr/lib/ssl/openssl.cnf',
-            '/usr/local/ssl/openssl.cnf',
+        $config = [
+            'curve_name'        => 'prime256v1',
+            'private_key_type'  => OPENSSL_KEYTYPE_EC,
+            'config'            => $tmpCnf,
         ];
-        foreach ($cnfPaths as $cnf) {
-            if ($cnf !== '' && is_file($cnf)) {
-                $config['config'] = $cnf;
-                break;
-            }
-        }
 
         $key = openssl_pkey_new($config);
         if ($key === false) {
+            unlink($tmpCnf);
             throw new Exception('EC-Schlüsselgenerierung fehlgeschlagen: ' . openssl_error_string());
         }
 
@@ -196,8 +188,8 @@ class AnkerSolixIO extends IPSModule
         $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
         $pubHex = '04' . bin2hex($x) . bin2hex($y);
 
-        $exportConfig = isset($config['config']) ? ['config' => $config['config']] : [];
-        openssl_pkey_export($key, $privPem, null, $exportConfig);
+        openssl_pkey_export($key, $privPem, null, ['config' => $tmpCnf]);
+        unlink($tmpCnf);
         $this->WriteAttributeString('ClientPrivateKey', $privPem);
         $this->WriteAttributeString('ClientPublicKey', $pubHex);
 
