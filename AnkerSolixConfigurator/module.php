@@ -147,7 +147,11 @@ class AnkerSolixKonfigurator extends IPSModule
 
     private function FindExistingInstance(string $siteId, string $deviceSn, string $typeKey): int
     {
+        $ioId = IPS_GetInstance($this->InstanceID)['ConnectionID'];
         foreach (IPS_GetInstanceListByModuleID('{660A99F2-398D-2B4D-9A1B-534DC3C70004}') as $id) {
+            if (IPS_GetInstance($id)['ConnectionID'] !== $ioId) {
+                continue;
+            }
             if (IPS_GetProperty($id, 'SiteId') === $siteId
                 && IPS_GetProperty($id, 'DeviceSn') === $deviceSn
                 && IPS_GetProperty($id, 'DeviceType') === $typeKey) {
