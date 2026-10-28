@@ -56,6 +56,12 @@ class AnkerSolixIO extends IPSModule
                 case 'GetSceneInfo':
                     return json_encode($this->GetSceneInfo($request['SiteId'] ?? ''));
 
+                case 'GetHesDevInfo':
+                    return json_encode($this->GetHesDevInfo($request['SiteId'] ?? ''));
+
+                case 'GetHesSystemRunningInfo':
+                    return json_encode($this->GetHesSystemRunningInfo($request['SiteId'] ?? ''));
+
                 default:
                     return json_encode(['error' => 'Unbekannte Aktion: ' . $action]);
             }
@@ -98,6 +104,20 @@ class AnkerSolixIO extends IPSModule
     {
         $token = $this->EnsureAuthenticated();
         $response = $this->ApiRequest('/power_service/v1/site/get_scen_info', ['site_id' => $siteId], $token);
+        return $response['data'] ?? [];
+    }
+
+    public function GetHesDevInfo(string $siteId): array
+    {
+        $token = $this->EnsureAuthenticated();
+        $response = $this->ApiRequest('/charging_hes_svc/get_hes_dev_info', ['siteId' => $siteId], $token);
+        return $response['data'] ?? [];
+    }
+
+    public function GetHesSystemRunningInfo(string $siteId): array
+    {
+        $token = $this->EnsureAuthenticated();
+        $response = $this->ApiRequest('/charging_hes_svc/get_system_running_info', ['siteId' => $siteId], $token);
         return $response['data'] ?? [];
     }
 

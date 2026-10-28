@@ -50,6 +50,12 @@ class AnkerSolixKonfigurator extends IPSModule
                 $siteName = $site['site_name'] ?? $siteId;
                 $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
 
+                // power_site_type 1 = Home Energy System (X1) — eigener API-Dienst
+                if (($scene['power_site_type'] ?? 0) === 1) {
+                    $values = array_merge($values, $this->BuildHesRows($siteName, $siteId));
+                    continue;
+                }
+
                 $foundAny = false;
                 foreach (self::DEVICE_TYPES as $typeKey => $typeDef) {
                     $infoBlock = $scene[$typeDef['info']] ?? [];
@@ -121,6 +127,35 @@ class AnkerSolixKonfigurator extends IPSModule
         }
 
         return is_array($data) ? $data : [];
+    }
+
+    private function BuildHesRows(string $siteName, string $siteId): array
+    {
+        $rows = [];
+        try {
+            $data = $this->RequestIO('GetHesDevInfo', ['SiteId' => $siteId]);
+            foreach ($data['results'] ?? [] as $hes) {
+                $mainSn = $hes['sn'] ?? '';
+                $mainName = $hes['aliasName'] !== '' ? $hes['aliasName'] : ($hes['name'] ?? 'X1');
+                $rows[] = $this->BuildRow($siteName, $mainName, 'X1', $mainSn, $siteId, 'hes');
+
+                foreach ($hes['subDevInfo'] ?? [] as $sub) {
+                    $subSn = $sub['sn'] ?? '';
+                    if ($subSn === $mainSn || $subSn === '') {
+                        continue;
+                    }
+                    $subName = $sub['aliasName'] !== '' ? $sub['aliasName'] : ($sub['name'] ?? $sub['type'] ?? 'Sub');
+                    $rows[] = $this->BuildRow($siteName, $subName, 'X1 ' . ucfirst($sub['type'] ?? 'Module'), $subSn, $siteId, 'hes_sub');
+                }
+            }
+        } catch (Exception $e) {
+            $this->LogMessage('Anker Solix Konfigurator (HES): ' . $e->getMessage(), KL_ERROR);
+        }
+
+        if (empty($rows)) {
+            $rows[] = $this->BuildRow($siteName, 'Keine HES-Geräte', '-', '', $siteId, '');
+        }
+        return $rows;
     }
 
     private function BuildRow(string $siteName, string $deviceName, string $typeLabel, string $deviceSn, string $siteId, string $typeKey): array
