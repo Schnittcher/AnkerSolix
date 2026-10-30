@@ -3,13 +3,12 @@
 ## 28.10.2026 - Version 1.2
 
 ### Neu
-- Anker Solix X1 (Home Energy System) wird jetzt im Konfigurator erkannt und angezeigt.
-- Neue API-Endpunkte `charging_hes_svc/get_hes_dev_info` und `get_system_running_info` für X1-Sites.
+- **Anker Solix X1 wird jetzt unterstützt!** Der Konfigurator erkennt X1-Systeme (Home Energy System) automatisch und listet das Hauptgerät sowie alle verbundenen Batteriemodule auf. Voraussetzung: Modul aktualisieren, dann den Konfigurator neu öffnen.
 
 ## 19.10.2026 - Version 1.1
 
 ### Fixes
-- EC-Schlüsselgenerierung auf Windows behoben: temporäre minimale `openssl.cnf` wird zur Laufzeit erzeugt, kein Suchen nach installierten Pfaden mehr.
+- EC-Schlüsselgenerierung auf Windows behoben: Das Modul erzeugt jetzt zur Laufzeit eine minimale temporäre Konfigurationsdatei für OpenSSL — kein Suchen nach installierten Pfaden mehr, funktioniert auf allen Windows-Systemen unabhängig von der PHP-Installation.
 
 ## 17.10.2026 - Version 1.0
 
