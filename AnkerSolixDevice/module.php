@@ -22,6 +22,7 @@ class AnkerSolixDevice extends IPSModule
         $this->RegisterPropertyString('DeviceName', '');
         $this->RegisterPropertyString('DeviceType', 'solarbank');
         $this->RegisterPropertyInteger('UpdateInterval', 60);
+        $this->RegisterPropertyInteger('BatteryCapacity', 0);
 
         $this->RegisterAttributeString('DeviceImageBase64', '');
         $this->RegisterAttributeString('DeviceImageUrl', '');
@@ -63,7 +64,10 @@ class AnkerSolixDevice extends IPSModule
             $this->ProcessScene($scene);
             $this->SetStatus(102);
         } catch (Exception $e) {
-            $this->LogMessage('Anker Solix UpdateData: ' . $e->getMessage(), KL_ERROR);
+            // Nur beim Übergang melden, ein Cloud-Ausfall würde sonst das Meldungsfenster fluten
+            if ($this->GetStatus() !== 203) {
+                $this->LogMessage('Anker Solix UpdateData: ' . $e->getMessage(), KL_ERROR);
+            }
             $this->SetStatus(203);
         }
     }
@@ -253,24 +257,26 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('HomeLoad', $homeLoad);
         $this->SendDebug('ProcessSolarbank', "SOC=$soc% | Solar=$solar W | Output=$output W | HomeLoad=$homeLoad W", 0);
 
-        // charging_status: 1=nur Laden, 2=Entladen, 3=Solar aktiv (bat_charge_power direkt verwertbar)
-        // Bei Status 2 enthält charging_power die Entladeleistung; bei 1/3 die Ladeleistung
+        // charging_status ist ab Solarbank 2 AC immer 0, charging_power enthält dann die Ausgangsleistung.
+        // Deshalb zählen die Felder bat_*; fehlen sie oder sind 0, gilt die Bilanz aus Ein- und Ausgang.
+        // Netzladung steht nur als Summe der Anlage bereit und passt nur bei einer einzelnen Solarbank.
         $chargingStatus = (int) ($device['charging_status'] ?? 0);
         $chargingPower = (float) ($device['charging_power'] ?? 0);
         $batCharge = (float) ($device['bat_charge_power'] ?? 0);
         $batDischarge = (float) ($device['bat_discharge_power'] ?? 0);
-        $this->SendDebug('ProcessSolarbank', "charging_status=$chargingStatus | charging_power=$chargingPower | bat_charge=$batCharge | bat_discharge=$batDischarge", 0);
+        $gridCharge = count($info['solarbank_list'] ?? []) === 1 ? (float) ($info['grid_to_battery_power'] ?? 0) : 0.0;
+        $this->SendDebug('ProcessSolarbank', "charging_status=$chargingStatus | charging_power=$chargingPower | bat_charge=$batCharge | bat_discharge=$batDischarge | grid_charge=$gridCharge", 0);
 
-        if ($chargingStatus === 2) {
-            $charge = 0.0;
-            $discharge = $chargingPower;
-        } elseif ($chargingStatus === 3) {
+        if ($batCharge > 0) {
             $charge = $batCharge;
+            $discharge = 0.0;
+        } elseif ($batDischarge > 0) {
+            $charge = 0.0;
             $discharge = $batDischarge;
         } else {
-            // Status 1 oder 0
-            $charge = $chargingPower > 0 ? $chargingPower : $batCharge;
-            $discharge = 0.0;
+            $balance = $solar + $gridCharge - $output;
+            $charge = max(0.0, $balance);
+            $discharge = max(0.0, -$balance);
         }
 
         $this->SetValue('BatteryPower', $charge > 0 ? $charge : -$discharge);
@@ -296,7 +302,7 @@ class AnkerSolixDevice extends IPSModule
         $this->SendDebug('ProcessSolarbank', "Status=$status | GridExport=$gridExport W", 0);
 
         // Batterieenergie aus SOC und nominaler Kapazität berechnen (API liefert keinen Wh-Wert)
-        $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '');
+        $nominalKwh = $this->GetCapacityKwh($device);
         $battEnergy = round($nominalKwh * $soc / 100, 2);
         $this->SetValue('BatteryEnergy', $battEnergy);
 
@@ -429,10 +435,27 @@ class AnkerSolixDevice extends IPSModule
         $this->SendDebug('ProcessHomePower', "Output=$hpOutput W | Grid=$hpGrid W | HomeLoad=$hpHome W | Status=$hpStatus", 0);
     }
 
-    // Gibt die nominale Kapazität in kWh anhand der Produktnummer zurück (API liefert keinen Wh-Wert)
-    private function GuessCapacityKwh(string $pn): float
+    // Gibt die Kapazität in kWh zurück: Eingabe in der Instanz, sonst Basisgerät plus Erweiterungsakkus.
+    // Die API nennt nur die Anzahl der Akkus; gemischte Größen lassen sich nur über die Eingabe abbilden.
+    private function GetCapacityKwh(array $device): float
     {
-        return ['A17C0' => 1.6, 'A17C1' => 1.6, 'A17C2' => 3.2, 'A17B1' => 0.768][$pn] ?? 1.6;
+        $configuredWh = $this->ReadPropertyInteger('BatteryCapacity');
+        if ($configuredWh > 0) {
+            return $configuredWh / 1000;
+        }
+
+        $sizes = [
+            'A17C0' => 1.6, 'A17C1' => 1.6, 'A17C2' => 1.6, 'A17C3' => 1.6,
+            'A17C5' => 2.688, 'AE103' => 5.024, 'A17E2' => 7.0, 'AE111' => 7.0,
+        ];
+        $pn = $device['device_pn'] ?? '';
+        if (!isset($sizes[$pn])) {
+            return 0.0;
+        }
+
+        // Die erste Solarbank-Generation kennt keine Erweiterungsakkus
+        $expansions = $pn === 'A17C0' ? 0 : (int) ($device['sub_package_num'] ?? 0);
+        return $sizes[$pn] * (1 + $expansions);
     }
 
     // ── Hilfsmethoden ───────────────────────────────────────────────────────────
