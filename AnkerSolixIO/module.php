@@ -188,28 +188,39 @@ class AnkerSolixIO extends IPSModule
             return $stored;
         }
 
-        $tmpCnf = tempnam(sys_get_temp_dir(), 'ssl_') . '.cnf';
+        // Minimale Konfiguration, damit keine openssl.cnf der Installation benötigt wird.
+        // private_key_bits ist für EC ohne Wirkung, aber Pflicht: PHP prüft die Schlüssellänge
+        // vor dem Schlüsseltyp und bricht ohne default_bits mit "configured to 0" ab.
+        $tmpCnf = tempnam(sys_get_temp_dir(), 'ssl_');
         file_put_contents($tmpCnf, "[req]\n");
 
-        $config = [
-            'curve_name'        => 'prime256v1',
-            'private_key_type'  => OPENSSL_KEYTYPE_EC,
-            'config'            => $tmpCnf,
-        ];
+        try {
+            // Alte Einträge verwerfen, sonst meldet openssl_error_string() einen fremden Fehler
+            while (openssl_error_string() !== false) {
+            }
 
-        $key = openssl_pkey_new($config);
-        if ($key === false) {
+            $key = openssl_pkey_new([
+                'curve_name'        => 'prime256v1',
+                'private_key_type'  => OPENSSL_KEYTYPE_EC,
+                'private_key_bits'  => 2048,
+                'config'            => $tmpCnf,
+            ]);
+            if ($key === false) {
+                throw new Exception('EC-Schlüsselgenerierung fehlgeschlagen: ' . (openssl_error_string() ?: 'unbekannter Fehler'));
+            }
+
+            $details = openssl_pkey_get_details($key);
+            $x = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
+            $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
+            $pubHex = '04' . bin2hex($x) . bin2hex($y);
+
+            if (!openssl_pkey_export($key, $privPem, null, ['config' => $tmpCnf])) {
+                throw new Exception('EC-Schlüsselexport fehlgeschlagen: ' . (openssl_error_string() ?: 'unbekannter Fehler'));
+            }
+        } finally {
             unlink($tmpCnf);
-            throw new Exception('EC-Schlüsselgenerierung fehlgeschlagen: ' . openssl_error_string());
         }
 
-        $details = openssl_pkey_get_details($key);
-        $x = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
-        $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
-        $pubHex = '04' . bin2hex($x) . bin2hex($y);
-
-        openssl_pkey_export($key, $privPem, null, ['config' => $tmpCnf]);
-        unlink($tmpCnf);
         $this->WriteAttributeString('ClientPrivateKey', $privPem);
         $this->WriteAttributeString('ClientPublicKey', $pubHex);
 
