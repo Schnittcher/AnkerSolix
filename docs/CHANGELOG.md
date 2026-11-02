@@ -5,6 +5,9 @@
 ### Neu
 - **Anker Solix X1 wird jetzt unterstützt!** Der Konfigurator erkennt X1-Systeme (Home Energy System) automatisch und listet das Hauptgerät sowie alle verbundenen Batteriemodule auf. Voraussetzung: Modul aktualisieren, dann den Konfigurator neu öffnen.
 
+### Fixes
+- Der Dokumentationslink der Instanzen führt jetzt zur Dokumentation auf deinsmarthome.info.
+
 ## 19.10.2026 - Version 1.1
 
 ### Fixes
