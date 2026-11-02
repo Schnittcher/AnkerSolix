@@ -118,7 +118,7 @@ class AnkerSolixKonfigurator extends IPSModule
         $result = $this->SendDataToParent(json_encode($payload));
 
         if ($result === false || $result === '') {
-            throw new Exception('Kein IO-Modul verbunden');
+            throw new Exception('Keine Antwort vom IO-Modul');
         }
 
         $data = json_decode($result, true);
