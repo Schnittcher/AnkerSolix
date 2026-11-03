@@ -54,6 +54,12 @@
                     "type": "NumberSpinner",
                     "name": "UpdateInterval",
                     "caption": "Interval (seconds)"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "BatteryCapacity",
+                    "caption": "Battery capacity (Wh, 0 = automatic)",
+                    "minimum": 0
                 }
             ]
         }

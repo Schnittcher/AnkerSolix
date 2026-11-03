@@ -31,6 +31,7 @@ Liest Echtzeit-Messwerte eines einzelnen Anker Solix Geräts zyklisch aus der Cl
 | **Site-ID** | Interne Anlagen-ID (vom Konfigurator gesetzt) |
 | **Seriennummer** | Seriennummer des Geräts (vom Konfigurator gesetzt) |
 | **Intervall (Sekunden)** | Aktualisierungsintervall, kein Limit |
+| **Speicherkapazität (Wh, 0 = automatisch)** | Automatisch: Basisgerät plus Anzahl der Erweiterungsakkus gleicher Größe. Bei gemischten Akkus die Summe eintragen, die API nennt nur die Anzahl. |
 
 ## 3. Variablen
 

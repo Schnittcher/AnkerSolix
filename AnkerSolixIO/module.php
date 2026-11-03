@@ -95,33 +95,49 @@ class AnkerSolixIO extends IPSModule
 
     public function GetSiteList(): array
     {
-        $token = $this->EnsureAuthenticated();
-        $response = $this->ApiRequest('/power_service/v1/site/get_site_list', ['from' => 'solarbank'], $token);
+        $response = $this->AuthenticatedRequest('/power_service/v1/site/get_site_list', ['from' => 'solarbank']);
         return $response['data']['site_list'] ?? [];
     }
 
     public function GetSceneInfo(string $siteId): array
     {
-        $token = $this->EnsureAuthenticated();
-        $response = $this->ApiRequest('/power_service/v1/site/get_scen_info', ['site_id' => $siteId], $token);
+        $response = $this->AuthenticatedRequest('/power_service/v1/site/get_scen_info', ['site_id' => $siteId]);
         return $response['data'] ?? [];
     }
 
     public function GetHesDevInfo(string $siteId): array
     {
-        $token = $this->EnsureAuthenticated();
-        $response = $this->ApiRequest('/charging_hes_svc/get_hes_dev_info', ['siteId' => $siteId], $token);
+        $response = $this->AuthenticatedRequest('/charging_hes_svc/get_hes_dev_info', ['siteId' => $siteId]);
         return $response['data'] ?? [];
     }
 
     public function GetHesSystemRunningInfo(string $siteId): array
     {
-        $token = $this->EnsureAuthenticated();
-        $response = $this->ApiRequest('/charging_hes_svc/get_system_running_info', ['siteId' => $siteId], $token);
+        $response = $this->AuthenticatedRequest('/charging_hes_svc/get_system_running_info', ['siteId' => $siteId]);
         return $response['data'] ?? [];
     }
 
     // ── Authentifizierung ───────────────────────────────────────────────────────
+
+    // Führt eine Anfrage aus, meldet sich bei abgelehntem Token einmal neu an und wirft bei API-Fehlern.
+    // Ohne diese Prüfung liefert ein Fehler leere Daten, und die Variablen bleiben unbemerkt stehen.
+    private function AuthenticatedRequest(string $path, array $payload): array
+    {
+        $response = $this->ApiRequest($path, $payload, $this->EnsureAuthenticated());
+
+        if (in_array($response['code'] ?? 0, [401, 403, 26084], true)) {
+            $this->WriteAttributeString('AuthToken', '');
+            $this->WriteAttributeInteger('TokenExpiry', 0);
+            $response = $this->ApiRequest($path, $payload, $this->EnsureAuthenticated());
+        }
+
+        $code = $response['code'] ?? 0;
+        if ($code !== 0) {
+            throw new Exception('Anker API Fehler ' . $code . ': ' . ($response['msg'] ?? 'unbekannt'));
+        }
+
+        return $response;
+    }
 
     private function EnsureAuthenticated(): array
     {
@@ -188,28 +204,39 @@ class AnkerSolixIO extends IPSModule
             return $stored;
         }
 
-        $tmpCnf = tempnam(sys_get_temp_dir(), 'ssl_') . '.cnf';
+        // Minimale Konfiguration, damit keine openssl.cnf der Installation benötigt wird.
+        // private_key_bits ist für EC ohne Wirkung, aber Pflicht: PHP prüft die Schlüssellänge
+        // vor dem Schlüsseltyp und bricht ohne default_bits mit "configured to 0" ab.
+        $tmpCnf = tempnam(sys_get_temp_dir(), 'ssl_');
         file_put_contents($tmpCnf, "[req]\n");
 
-        $config = [
-            'curve_name'        => 'prime256v1',
-            'private_key_type'  => OPENSSL_KEYTYPE_EC,
-            'config'            => $tmpCnf,
-        ];
+        try {
+            // Alte Einträge verwerfen, sonst meldet openssl_error_string() einen fremden Fehler
+            while (openssl_error_string() !== false) {
+            }
 
-        $key = openssl_pkey_new($config);
-        if ($key === false) {
+            $key = openssl_pkey_new([
+                'curve_name'        => 'prime256v1',
+                'private_key_type'  => OPENSSL_KEYTYPE_EC,
+                'private_key_bits'  => 2048,
+                'config'            => $tmpCnf,
+            ]);
+            if ($key === false) {
+                throw new Exception('EC-Schlüsselgenerierung fehlgeschlagen: ' . (openssl_error_string() ?: 'unbekannter Fehler'));
+            }
+
+            $details = openssl_pkey_get_details($key);
+            $x = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
+            $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
+            $pubHex = '04' . bin2hex($x) . bin2hex($y);
+
+            if (!openssl_pkey_export($key, $privPem, null, ['config' => $tmpCnf])) {
+                throw new Exception('EC-Schlüsselexport fehlgeschlagen: ' . (openssl_error_string() ?: 'unbekannter Fehler'));
+            }
+        } finally {
             unlink($tmpCnf);
-            throw new Exception('EC-Schlüsselgenerierung fehlgeschlagen: ' . openssl_error_string());
         }
 
-        $details = openssl_pkey_get_details($key);
-        $x = str_pad($details['ec']['x'], 32, "\x00", STR_PAD_LEFT);
-        $y = str_pad($details['ec']['y'], 32, "\x00", STR_PAD_LEFT);
-        $pubHex = '04' . bin2hex($x) . bin2hex($y);
-
-        openssl_pkey_export($key, $privPem, null, ['config' => $tmpCnf]);
-        unlink($tmpCnf);
         $this->WriteAttributeString('ClientPrivateKey', $privPem);
         $this->WriteAttributeString('ClientPublicKey', $pubHex);
 
@@ -293,7 +320,7 @@ class AnkerSolixIO extends IPSModule
         $body = curl_exec($ch);
         $errno = curl_errno($ch);
         $error = curl_error($ch);
-        curl_close($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
         if ($errno !== 0) {
             throw new Exception('cURL Fehler (' . $errno . '): ' . $error);
@@ -301,8 +328,11 @@ class AnkerSolixIO extends IPSModule
 
         $data = json_decode($body, true);
         if (!is_array($data)) {
-            throw new Exception('Ungültige API-Antwort: ' . substr($body, 0, 200));
+            throw new Exception('Ungültige API-Antwort (HTTP ' . $httpCode . '): ' . substr($body, 0, 200));
         }
+
+        // Die API meldet Fehler im Feld code; fehlt es, zählt der HTTP-Status
+        $data['code'] = in_array($httpCode, [401, 403, 429], true) ? $httpCode : (int) ($data['code'] ?? ($httpCode === 200 ? 0 : $httpCode));
 
         return $data;
     }

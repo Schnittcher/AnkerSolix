@@ -25,6 +25,7 @@
             "Device": "Gerät",
             "Update": "Aktualisierung",
             "Interval (seconds)": "Intervall (Sekunden)",
+            "Battery capacity (Wh, 0 = automatic)": "Speicherkapazität (Wh, 0 = automatisch)",
             "Update now": "Jetzt aktualisieren",
             "Debug: Raw data to log": "Debug: Rohdaten ins Log",
             "Donations": "Spenden / Schenkung",
