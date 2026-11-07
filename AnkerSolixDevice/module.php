@@ -46,6 +46,13 @@ class AnkerSolixDevice extends IPSModule
         }
 
         $this->MaintainVariablesForType($this->ReadPropertyString('DeviceType'));
+
+        if (!$this->HasActiveParent()) {
+            $this->SetStatus(201);
+            $this->SetTimerInterval('UpdateTimer', 0);
+            return;
+        }
+
         $this->SetStatus(102);
         $this->SetTimerInterval('UpdateTimer', 1000);
     }
@@ -152,6 +159,9 @@ class AnkerSolixDevice extends IPSModule
     // Holt die Bild-URL des Geräts aus der Scene-API und speichert sie im Attribut
     private function FetchDeviceImageFromScene(): void
     {
+        if (!$this->HasActiveParent()) {
+            return;
+        }
         try {
             $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $this->ReadPropertyString('SiteId')]);
             $info = $scene['solarbank_info'] ?? $scene['smart_plug_info'] ?? $scene['pps_info'] ?? $scene['home_info'] ?? $scene['grid_info'] ?? [];

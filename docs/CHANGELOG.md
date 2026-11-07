@@ -2,6 +2,11 @@
 
 ## 07.11.2026 - Version 1.3
 
+### Fixes
+- Warning "No parent instance was configured" behoben: Der Timer und der Bild-Abruf starten jetzt nur noch, wenn ein aktives IO-Modul verbunden ist.
+
+
+
 ### Neu
 - X1-Instanz legt jetzt automatisch Variablen an: Verbindungsstatus, Betriebsstatus und Gesamtenergie.
 - Batterie-Variablen (SOC, Energie, Leistung) werden für X1-Instanzen angelegt und über `get_system_running_info` befüllt.
