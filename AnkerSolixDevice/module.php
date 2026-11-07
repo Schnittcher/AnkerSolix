@@ -58,9 +58,18 @@ class AnkerSolixDevice extends IPSModule
         $this->SetTimerInterval('UpdateTimer', $this->ReadPropertyInteger('UpdateInterval') * 1000);
 
         try {
-            $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $this->ReadPropertyString('SiteId')]);
-            $this->SendDebug('UpdateData', json_encode($scene, JSON_UNESCAPED_UNICODE), 0);
-            $this->ProcessScene($scene);
+            $type = $this->ReadPropertyString('DeviceType');
+            $siteId = $this->ReadPropertyString('SiteId');
+
+            if (in_array($type, ['hes', 'hes_sub'])) {
+                $data = $this->RequestIO('GetHesSystemRunningInfo', ['SiteId' => $siteId]);
+                $this->SendDebug('UpdateData', json_encode($data, JSON_UNESCAPED_UNICODE), 0);
+                $this->ProcessHes($data);
+            } else {
+                $scene = $this->RequestIO('GetSceneInfo', ['SiteId' => $siteId]);
+                $this->SendDebug('UpdateData', json_encode($scene, JSON_UNESCAPED_UNICODE), 0);
+                $this->ProcessScene($scene);
+            }
             $this->SetStatus(102);
         } catch (Exception $e) {
             $this->LogMessage('Anker Solix UpdateData: ' . $e->getMessage(), KL_ERROR);
@@ -187,11 +196,12 @@ class AnkerSolixDevice extends IPSModule
     private function MaintainVariablesForType(string $type): void
     {
         $isSolarbank = in_array($type, ['solarbank', 'pps', 'home_power']);
-        $hasBattery = in_array($type, ['solarbank', 'pps', 'home_power']);
+        $hasBattery = in_array($type, ['solarbank', 'pps', 'home_power', 'hes', 'hes_sub']);
         $hasSolar = in_array($type, ['solarbank', 'home_power']);
         $hasPower = in_array($type, ['smartplug', 'smart_meter', 'pps']);
         $hasVoltCurr = in_array($type, ['pps', 'smart_meter']);          // Smart Plug liefert keine V/A
         $hasTotalPlug = in_array($type, ['pps', 'smart_meter']);          // Smart Plug liefert keine kWh
+        $isHes = $type === 'hes';
         $this->MaintainVariable('SolarPower', $this->Translate('Solar Power'), VARIABLETYPE_FLOAT, self::WATT, 10, $hasSolar);
 
         $this->MaintainVariable('SOC', $this->Translate('Battery Level'), VARIABLETYPE_FLOAT, self::PCT, 20, $hasBattery);
@@ -200,12 +210,13 @@ class AnkerSolixDevice extends IPSModule
         $this->MaintainVariable('Chargepower', $this->Translate('Charge Power'), VARIABLETYPE_FLOAT, self::WATT, 45, $hasBattery);
         $this->MaintainVariable('Dischargepower', $this->Translate('Discharge Power'), VARIABLETYPE_FLOAT, self::WATT, 46, $hasBattery);
 
-        $this->MaintainVariable('OperatingStatus', $this->Translate('Operating Status'), VARIABLETYPE_STRING, [], 50, $isSolarbank);
+        // HES (X1) — Live-Leistungswerte nur per MQTT verfügbar; REST liefert Status und Gesamtenergie
+        $this->MaintainVariable('Connected', $this->Translate('Connected'), VARIABLETYPE_BOOLEAN, [], 5, $isHes);
+        $this->MaintainVariable('OperatingStatus', $this->Translate('Operating Status'), VARIABLETYPE_STRING, [], 50, $isSolarbank || $isHes);
         $this->MaintainVariable('OutputPower', $this->Translate('Output Power'), VARIABLETYPE_FLOAT, self::WATT, 60, $isSolarbank);
         $this->MaintainVariable('GridExport', $this->Translate('Grid Export'), VARIABLETYPE_FLOAT, self::WATT, 65, $isSolarbank);
         $this->MaintainVariable('HomeLoad', $this->Translate('Home Load'), VARIABLETYPE_FLOAT, self::WATT, 70, $isSolarbank);
-
-        $this->MaintainVariable('TotalEnergy', $this->Translate('Total Energy'), VARIABLETYPE_FLOAT, self::KWH, 75, $isSolarbank || $hasTotalPlug);
+        $this->MaintainVariable('TotalEnergy', $this->Translate('Total Energy'), VARIABLETYPE_FLOAT, self::KWH, 75, $isSolarbank || $hasTotalPlug || $isHes);
 
         $this->MaintainVariable('Power', $this->Translate('Power'), VARIABLETYPE_FLOAT, self::WATT, 80, $hasPower);
         $this->MaintainVariable('Voltage', $this->Translate('Voltage'), VARIABLETYPE_FLOAT, self::VOLT, 90, $hasVoltCurr);
@@ -427,6 +438,30 @@ class AnkerSolixDevice extends IPSModule
         $this->SetValue('BatteryEnergy', (float) ($this->FindKey($device, ['battery_energy', 'battery_energy_wh']) ?? 0) / 1000);
         $this->SetValue('TotalEnergy', (float) ($this->FindKey($device, ['total_energy', 'total_energy_kwh']) ?? 0));
         $this->SendDebug('ProcessHomePower', "Output=$hpOutput W | Grid=$hpGrid W | HomeLoad=$hpHome W | Status=$hpStatus", 0);
+    }
+
+    // Verarbeitet die HES-Laufzeitdaten (X1) aus get_system_running_info
+    // Live-Leistungswerte (W) sind über REST nicht verfügbar — nur Status und Gesamtenergie
+    private function ProcessHes(array $data): void
+    {
+        $type = $this->ReadPropertyString('DeviceType');
+
+        if ($type === 'hes') {
+            $connected = (bool) ($data['connected'] ?? false);
+            $totalKwh = (float) ($data['totalSystemPowerGeneration'] ?? 0);
+
+            $this->SetValue('Connected', $connected);
+            $this->SetValue('TotalEnergy', $totalKwh);
+
+            if ($connected) {
+                $status = $this->Translate('Connected');
+            } else {
+                $status = $this->Translate('Disconnected');
+            }
+            $this->SetValue('OperatingStatus', $status);
+            $this->SendDebug('ProcessHes', "Connected=$connected | TotalEnergy=$totalKwh kWh | Status=$status", 0);
+        }
+        // hes_sub (Batteriemodul): REST liefert keine Live-Daten pro Modul
     }
 
     // Gibt die nominale Kapazität in kWh anhand der Produktnummer zurück (API liefert keinen Wh-Wert)
