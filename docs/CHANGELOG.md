@@ -4,6 +4,7 @@
 
 ### Fixes
 - Batterieenergie bei Solarbank mit Erweiterungsakkus (BP1600) wird jetzt korrekt berechnet: Das API-Feld `sub_package_num` gibt die Anzahl der Zusatzakkus an, die nun zur nominalen Kapazität addiert werden.
+- Warning "No parent instance was configured" beim Öffnen des Konfigurators ohne verbundenes IO-Modul behoben.
 
 ## 07.11.2026 - Version 1.3
 

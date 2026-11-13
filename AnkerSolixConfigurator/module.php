@@ -111,6 +111,10 @@ class AnkerSolixKonfigurator extends IPSModule
 
     private function RequestIO(string $action, array $params): array
     {
+        if (!$this->HasActiveParent()) {
+            throw new Exception('Kein IO-Modul verbunden');
+        }
+
         $payload = $params;
         $payload['DataID'] = '{56367DF0-FB25-4588-9E60-C19AFB148E76}';
         $payload['Action'] = $action;
