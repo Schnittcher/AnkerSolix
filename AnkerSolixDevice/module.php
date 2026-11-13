@@ -317,7 +317,8 @@ class AnkerSolixDevice extends IPSModule
         $this->SendDebug('ProcessSolarbank', "Status=$status | GridExport=$gridExport W", 0);
 
         // Batterieenergie aus SOC und nominaler Kapazität berechnen (API liefert keinen Wh-Wert)
-        $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '');
+        $expansions = (int) ($device['sub_package_num'] ?? 0);
+        $nominalKwh = $this->GuessCapacityKwh($device['device_pn'] ?? '') * (1 + $expansions);
         $battEnergy = round($nominalKwh * $soc / 100, 2);
         $this->SetValue('BatteryEnergy', $battEnergy);
 

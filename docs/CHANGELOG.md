@@ -1,5 +1,10 @@
 # Changelog
 
+## 13.11.2026 - Version 1.4
+
+### Fixes
+- Batterieenergie bei Solarbank mit Erweiterungsakkus (BP1600) wird jetzt korrekt berechnet: Das API-Feld `sub_package_num` gibt die Anzahl der Zusatzakkus an, die nun zur nominalen Kapazität addiert werden.
+
 ## 07.11.2026 - Version 1.3
 
 ### Neu
